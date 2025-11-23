@@ -13,6 +13,30 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const { signOut, user } = useAuth();
+  const [editingField, setEditingField] = useState<'name' | 'email' | 'phone' | 'password' | null>(null);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  const handleSave = async (value: string) => {
+    try {
+      const updates: any = {};
+      // Mapeia o campo editado para o formato do Supabase
+      if (editingField === 'name') updates.data = { name: value };
+      else if (editingField === 'password') updates.password = value;
+      else updates[editingField!] = value; // email ou phone
+
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) throw error;
+      
+      alert('Dados atualizados com sucesso!');
+    } catch (error: any) {
+      alert('Erro ao atualizar: ' + error.message);
+    }
+  };
+
+  // Conteúdo dos termos
+  const termsText = <><p>1. Termos de uso...</p><p>2. Aceitação...</p></>;
+  const privacyText = <><p>1. Coleta de dados...</p><p>2. Segurança...</p></>;
 
   const handleLogout = async () => {
     await signOut();
