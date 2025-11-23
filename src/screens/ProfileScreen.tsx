@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useState } from 'react'; // Adicione ao import do React
+import { useState, useEffect } from 'react'; // Adicione ao import do React
 import { supabase } from '../lib/supabase';
 import { EditInfoModal } from '../components/EditInfoModal';
 import { LegalModal } from '../components/LegalModal';
@@ -17,23 +17,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
 
-  const handleSave = async (value: string) => {
+ const handleSave = async (value: string) => {
     try {
       const updates: any = {};
-      // Mapeia o campo editado para o formato do Supabase
+      
       if (editingField === 'name') updates.data = { name: value };
       else if (editingField === 'password') updates.password = value;
-      else updates[editingField!] = value; // email ou phone
+      else updates[editingField!] = value;
 
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
       
-      alert('Dados atualizados com sucesso!');
+      // 4. ALTERADO: Em vez de alert(), usamos o setNotification
+      setNotification({ text: 'Dados atualizados com sucesso!', type: 'success' });
     } catch (error: any) {
-      alert('Erro ao atualizar: ' + error.message);
+      // 4. ALTERADO: Mensagem de erro visual
+      setNotification({ text: 'Erro ao atualizar: ' + error.message, type: 'error' });
     }
   };
-
   // Conteúdo dos termos
   const termsText = <><p>1. Termos de uso...</p><p>2. Aceitação...</p></>;
   const privacyText = <><p>1. Coleta de dados...</p><p>2. Segurança...</p></>;
