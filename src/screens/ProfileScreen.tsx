@@ -2,6 +2,11 @@ import React from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
+import { useState } from 'react'; // Adicione ao import do React
+import { supabase } from '../lib/supabase';
+import { EditInfoModal } from '../components/EditInfoModal';
+import { LegalModal } from '../components/LegalModal';
+
 interface ProfileScreenProps {
   onBack: () => void;
   onLogout: () => void;
