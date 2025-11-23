@@ -177,6 +177,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           </button>
         </div>
       </main>
+
+{/* Modais flutuantes */}
+      {editingField && (
+        <EditInfoModal
+          title={
+            editingField === 'name' ? 'Alterar Nome' :
+            editingField === 'email' ? 'Alterar E-mail' :
+            editingField === 'phone' ? 'Alterar Celular' : 'Alterar Senha'
+          }
+          initialValue={
+             editingField === 'name' ? user?.user_metadata?.name : 
+             editingField === 'email' ? user?.email : 
+             editingField === 'phone' ? user?.phone : ''
+          }
+          type={editingField === 'password' ? 'password' : 'text'}
+          onSave={handleSave}
+          onClose={() => setEditingField(null)}
+        />
+      )}
+
+      {showTerms && <LegalModal title="Termos de Serviço" content={termsText} onClose={() => setShowTerms(false)} />}
+      {showPrivacy && <LegalModal title="Política de Privacidade" content={privacyText} onClose={() => setShowPrivacy(false)} />}
+
+
+    
     </div>
   );
 };
