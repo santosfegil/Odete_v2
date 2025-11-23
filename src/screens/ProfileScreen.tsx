@@ -45,21 +45,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     }
   };
   // Conteúdo dos termos
-{showTerms && (
-        <LegalModal 
-          title="Termos de Serviço" 
-          content={TERMS_CONTENT} 
-          onClose={() => setShowTerms(false)} 
-        />
-      )}
 
-      {showPrivacy && (
-        <LegalModal 
-          title="Política de Privacidade" 
-          content={PRIVACY_CONTENT} 
-          onClose={() => setShowPrivacy(false)} 
-        />
-      )}
 
   const handleLogout = async () => {
     await signOut();
@@ -233,7 +219,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       {showTerms && <LegalModal title="Termos de Serviço" content={termsText} onClose={() => setShowTerms(false)} />}
       {showPrivacy && <LegalModal title="Política de Privacidade" content={privacyText} onClose={() => setShowPrivacy(false)} />}
 
+{showTerms && (
+        <LegalModal 
+          title="Termos de Serviço" 
+          content={TERMS_CONTENT} 
+          onClose={() => setShowTerms(false)} 
+        />
+      )}
 
+      {showPrivacy && (
+        <LegalModal 
+          title="Política de Privacidade" 
+          content={PRIVACY_CONTENT} 
+          onClose={() => setShowPrivacy(false)} 
+        />
+      )}
     
     </div>
   );
