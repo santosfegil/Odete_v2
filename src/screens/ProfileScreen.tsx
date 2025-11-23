@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'; // Adicione ao import do React
 import { supabase } from '../lib/supabase';
 import { EditInfoModal } from '../components/EditInfoModal';
 import { LegalModal } from '../components/LegalModal';
+import { TERMS_CONTENT, PRIVACY_CONTENT } from '../constants/legalTexts';
 
 interface ProfileScreenProps {
   onBack: () => void;
