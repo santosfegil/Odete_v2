@@ -56,7 +56,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       <main className="flex-grow space-y-6 pb-6">
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
           <h2 className="text-sm font-semibold text-emerald-500 mb-4">INFORMAÇÃO PESSOAL</h2>
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('name')>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('name')}>
             <span className="text-stone-600 dark:text-stone-300">Nome</span>
             <div className="flex items-center gap-2">
               <span className="font-medium">Fernando Gil</span>
