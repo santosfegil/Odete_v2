@@ -69,20 +69,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           <h2 className="text-sm font-semibold text-emerald-500 mb-4">DETALHES DA CONTA</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-stone-600 dark:text-stone-300" onClick={() => setEditingField('email')}>E-mail</span>
+              <span className="text-stone-600 dark:text-stone-300 cursor-pointer" onClick={() => setEditingField('email')}>E-mail</span>
               <div className="flex items-center gap-2">
                 <span className="font-medium">fernando.gil@gympass.com</span>
                 <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
               </div>
             </div>
-            <div className="flex items-center justify-between" onClick={() => setEditingField('password')}>
+            <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('password')}>
               <span className="text-stone-600 dark:text-stone-300">Senha</span>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-emerald-500">Trocar senha</span>
                 <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
               </div>
             </div>
-            <div className="flex items-center justify-between" onClick={() => setEditingField('phone')}>
+            <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('phone')}>
               <span className="text-stone-600 dark:text-stone-300" >Número de celular</span>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-stone-400 dark:text-stone-500">Não informado</span>
@@ -132,11 +132,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
           <h2 className="text-sm font-semibold text-emerald-500 mb-4">LEGAL</h2>
           <div className="space-y-4">
-            <div className="flex items-center justify-between"onClick={() => setShowTerms(true)}>
+            <div className="flex items-center justify-between cursor-pointer"onClick={() => setShowTerms(true)}>
               <span className="font-medium">Termos</span>
               <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
             </div>
-            <div className="flex items-center justify-between"onClick={() => setShowPrivacy(true)}>
+            <div className="flex items-center justify-between cursor-pointer"onClick={() => setShowPrivacy(true)}>
               <span className="font-medium">Política de Privacidade</span>
               <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
             </div>
