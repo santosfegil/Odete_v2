@@ -45,8 +45,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     }
   };
   // Conteúdo dos termos
-  const termsText = <><p>1. Termos de uso...</p><p>2. Aceitação...</p></>;
-  const privacyText = <><p>1. Coleta de dados...</p><p>2. Segurança...</p></>;
+{showTerms && (
+        <LegalModal 
+          title="Termos de Serviço" 
+          content={TERMS_CONTENT} 
+          onClose={() => setShowTerms(false)} 
+        />
+      )}
+
+      {showPrivacy && (
+        <LegalModal 
+          title="Política de Privacidade" 
+          content={PRIVACY_CONTENT} 
+          onClose={() => setShowPrivacy(false)} 
+        />
+      )}
 
   const handleLogout = async () => {
     await signOut();
