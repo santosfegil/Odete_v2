@@ -13,6 +13,14 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const { signOut, user } = useAuth();
+  const [notification, setNotification] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
   const [editingField, setEditingField] = useState<'name' | 'email' | 'phone' | 'password' | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
