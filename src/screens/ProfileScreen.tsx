@@ -1,12 +1,18 @@
 import React from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileScreenProps {
   onBack: () => void;
   onLogout: () => void;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+  };
   return (
     <div className="min-h-screen flex flex-col p-4 max-w-md mx-auto">
       <header className="relative flex items-center justify-center py-4 mb-4">
@@ -136,7 +142,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, onLogout }
 
         <div className="py-4">
           <button
-            onClick={onLogout}
+            onClick={handleLogout}
             className="w-full text-center font-semibold text-emerald-500 hover:text-emerald-600 transition-colors"
           >
             Sair

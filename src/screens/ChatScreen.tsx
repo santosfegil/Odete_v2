@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Mic, Phone, User, LogOut, Smile, Paperclip, Camera } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 type ChatMode = 'mimar' | 'julgar';
 type ChatMessage = {
@@ -32,6 +33,7 @@ export default function ChatScreen({ onShowProfile }: ChatScreenProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { signOut } = useAuth();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -50,9 +52,9 @@ export default function ChatScreen({ onShowProfile }: ChatScreenProps) {
     setShowMenu(false);
   };
 
-  const handleLogout = () => {
-    console.log('Sair da aplicação');
+  const handleLogout = async () => {
     setShowMenu(false);
+    await signOut();
   };
 
   // Auto-scroll para a última mensagem

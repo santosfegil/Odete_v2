@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   activeTab: 'gastos' | 'investimentos';
@@ -10,6 +11,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onShowProfile }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -27,9 +29,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange, onShowPr
     setShowMenu(false);
   };
 
-  const handleLogout = () => {
-    console.log('Sair da aplicação');
+  const handleLogout = async () => {
     setShowMenu(false);
+    await signOut();
   };
 
   return (

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from './contexts/AuthContext';
 import TabBar from './components/TabBar';
 import HomeScreen from './screens/HomeScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -10,9 +11,13 @@ import SpendingHistoryScreen from './screens/SpendingHistoryScreen';
 import DailySpendingHistoryScreen from './screens/DailySpendingHistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import BudgetScreen from './screens/BudgetScreen';
+import LoginScreen from './screens/LoginScreen';
+import SignUpScreen from './screens/SignUpScreen';
 import type { Screen } from './types';
 
 function App() {
+  const { user, loading } = useAuth();
+  const [showSignUp, setShowSignUp] = useState(false);
   const [activeTab, setActiveTab] = useState<Screen>('home');
   const [walletTab, setWalletTab] = useState<'controle' | 'conquistas'>('controle');
   const [showAllGoals, setShowAllGoals] = useState(false);
@@ -65,9 +70,28 @@ function App() {
   };
 
   const handleLogout = () => {
-    console.log('Logout');
     setShowProfile(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-pulse">
+            <span className="text-3xl font-bold text-white">O</span>
+          </div>
+          <p className="text-stone-600 font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    if (showSignUp) {
+      return <SignUpScreen onLoginClick={() => setShowSignUp(false)} />;
+    }
+    return <LoginScreen onSignUpClick={() => setShowSignUp(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col max-w-md mx-auto relative">

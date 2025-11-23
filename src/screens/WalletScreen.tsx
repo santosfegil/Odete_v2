@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut } from 'lucide-react';
 import { WalletData, AchievementsData } from '../types';
 import MedalDetailModal from '../components/MedalDetailModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const MOCK_WALLET_DATA: WalletData = {
   savingsHelp: 542.30,
@@ -84,6 +85,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
   const [selectedMedal, setSelectedMedal] = useState<{ id: string; icon: string; name: string; description: string; earned?: boolean } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -101,9 +103,9 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     setShowMenu(false);
   };
 
-  const handleLogout = () => {
-    console.log('Sair da aplicação');
+  const handleLogout = async () => {
     setShowMenu(false);
+    await signOut();
   };
 
   return (
