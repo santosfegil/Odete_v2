@@ -44,13 +44,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   };
   return (
     <div className="min-h-screen flex flex-col p-4 max-w-md mx-auto relative">
-      {notification && (
-        <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-xl z-[60] text-sm font-bold text-white animate-in slide-in-from-top-2 ${
-          notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
-        }`}>
-          {notification.text}
-        </div>
-      )}
+    
     
       <header className="relative flex items-center justify-center py-4 mb-4">
         <button
