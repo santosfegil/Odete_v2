@@ -101,3 +101,14 @@ export interface BudgetCategory {
   spent: number;
   remaining: number;
 }
+
+
+//Home dashboardBudget
+export interface DashboardData {
+  budget: number;
+  spent: number;
+  owed: number;
+  invested: number;
+  income: number;
+  saved: number;
+}
