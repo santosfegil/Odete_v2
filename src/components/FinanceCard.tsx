@@ -117,7 +117,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
               {toMoney(available)}
             </p>
             <p className="mt-2 text-xs font-medium text-stone-500 dark:text-stone-400 max-w-[220px] mx-auto leading-relaxed">
-              ainda disponíveis dos {toMoney(data?.budget || 0)} que você deve gastar
+              disponíveis dos {toMoney(data?.budget || 0)} de orçamento
             </p>
           </div>
 
