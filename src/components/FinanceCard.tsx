@@ -57,7 +57,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
   const daysLeft = isCurrentMonth ? Math.max(0, lastDayOfMonth - today.getDate()) : 0;
 
   // Cálculos Financeiros
-  const totalUsed = (data?.spent || 0) + (data?.owed || 0) + (data?.invested || 0);
+  const totalUsed = (data?.spent || 0) + (data?.owed || 0) ;
   // Regra 4: Disponível = Orçamento - (Tudo que saiu ou está comprometido)
   const available = Math.max(0, (data?.budget || 0) - totalUsed);
   // Regra 4: Por dia
