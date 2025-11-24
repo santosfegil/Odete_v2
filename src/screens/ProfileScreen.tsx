@@ -14,6 +14,9 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
   const { signOut, user } = useAuth();
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  
   const [notification, setNotification] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -23,8 +26,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
     }
   }, [notification]);
   const [editingField, setEditingField] = useState<'name' | 'email' | 'phone' | 'password' | null>(null);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
+
 
  const handleSave = async (value: string) => {
     try {
