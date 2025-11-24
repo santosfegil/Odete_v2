@@ -3,18 +3,9 @@ import { Header } from '../components/HeaderHomeScreen';
 import { FinanceCard } from '../components/FinanceCard';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { NextSteps } from '../components/NextSteps';
-import { FinanceData, InvestmentData, NextStepTask } from '../types';
+import { InvestmentData, NextStepTask } from '../types';
 
-const MOCK_FINANCE_DATA: FinanceData = {
-  month: 'Setembro',
-  year: 2024,
-  savedAmount: 250,
-  totalSpent: 750.00,
-  totalBudget: 1000.00,
-  daysLeft: 3,
-  received: 1000.00,
-  invested: 250.00,
-};
+
 
 const INITIAL_TASKS: NextStepTask[] = [
   { id: '1', label: 'Conectar dados de bancos', completed: true },
@@ -59,7 +50,7 @@ export default function App({ onShowProfile, onShowBudget }: HomeScreenProps) {
       <main className="flex-grow px-4 pb-4 animate-in fade-in duration-500">
         {activeTab === 'gastos' ? (
           <>
-            <FinanceCard data={MOCK_FINANCE_DATA} onShowBudget={onShowBudget} />
+            <FinanceCard onShowBudget={onShowBudget} />
           </>
         ) : (
           <InvestmentCard data={MOCK_INVESTMENT_DATA} />
