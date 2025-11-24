@@ -201,6 +201,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       </main>
 
 {/* Modais flutuantes */}
+
+      {editingField === 'password' ? (
+        // 1. Se for SENHA, mostra o modal NOVO e específico
+        <ChangePasswordModal
+          userEmail={user?.email}
+          onClose={() => setEditingField(null)}
+          onSuccess={() => setNotification({ text: 'Senha alterada com sucesso!', type: 'success' })}
+        />
+      ) : (
       {editingField && (
         <EditInfoModal
           title={
@@ -217,6 +226,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           onSave={handleSave}
           onClose={() => setEditingField(null)}
         />
+  )
       )}
 
 
