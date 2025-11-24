@@ -218,13 +218,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         />
       )}
 
-      {showTerms && <LegalModal title="Termos de Serviço" content={termsText} onClose={() => setShowTerms(false)} />}
-      {showPrivacy && <LegalModal title="Política de Privacidade" content={privacyText} onClose={() => setShowPrivacy(false)} />}
+
 
 {showTerms && (
         <LegalModal 
           title="Termos de Serviço" 
-          content={<p>Este é um teste para ver se o modal abre.</p>}
+          content={TERMS_CONTENT}
           onClose={() => setShowTerms(false)} 
         />
       )}
