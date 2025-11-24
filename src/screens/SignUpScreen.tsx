@@ -51,7 +51,8 @@ export default function SignUpScreen({ onLoginClick }: SignUpScreenProps) {
       if (signUpError.message.includes('already registered')) {
         setError('Este email já está cadastrado');
       } else {
-        setError('Erro ao criar conta. Tente novamente.');
+        setError(signUpError.message);
+        //setError('Erro ao criar conta. Tente novamente.');
       }
       setLoading(false);
     } else {
