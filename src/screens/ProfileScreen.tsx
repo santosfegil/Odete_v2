@@ -210,7 +210,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
           onSuccess={() => setNotification({ text: 'Senha alterada com sucesso!', type: 'success' })}
         />
       ) : (
-      {editingField && (
+      editingField && (
         <EditInfoModal
           title={
             editingField === 'name' ? 'Alterar Nome' :
