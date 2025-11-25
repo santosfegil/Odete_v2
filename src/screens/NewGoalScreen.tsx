@@ -72,7 +72,8 @@ export default function NewGoalScreen({ onBack, onAskOdete }: NewGoalScreenProps
       <main className="flex flex-col flex-1 px-6 pt-6 overflow-y-auto overflow-x-hidden space-y-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         
         <div className="space-y-1">
-          <label className="text-xs font-extrabold text-stone-900 uppercase tracking-wider ml-2">
+          {/* REMOVIDO: uppercase */}
+          <label className="text-xs font-extrabold text-stone-900 tracking-wider ml-2">
             O que você quer conquistar?
           </label>
           <input
@@ -84,7 +85,8 @@ export default function NewGoalScreen({ onBack, onAskOdete }: NewGoalScreenProps
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-extrabold text-stone-900 uppercase tracking-wider ml-2">
+          {/* REMOVIDO: uppercase */}
+          <label className="text-xs font-extrabold text-stone-900 tracking-wider ml-2">
             Qual o valor total?
           </label>
           <div className="relative">
@@ -110,7 +112,8 @@ export default function NewGoalScreen({ onBack, onAskOdete }: NewGoalScreenProps
         </button>
 
         <div className="space-y-2 pt-2">
-          <label className="text-xs font-extrabold text-stone-900 uppercase tracking-wider ml-2">
+          {/* REMOVIDO: uppercase */}
+          <label className="text-xs font-extrabold text-stone-900 tracking-wider ml-2">
             Como vamos rastrear?
           </label>
           
@@ -153,7 +156,8 @@ export default function NewGoalScreen({ onBack, onAskOdete }: NewGoalScreenProps
 
         {trackingType === 'auto' && (
           <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
-            <label className="text-xs font-extrabold text-stone-400 uppercase tracking-wider ml-2">
+            {/* REMOVIDO: uppercase */}
+            <label className="text-xs font-extrabold text-stone-400 tracking-wider ml-2">
               Vincular à conta:
             </label>
             <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
