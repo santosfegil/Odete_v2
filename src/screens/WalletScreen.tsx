@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut } from 'lucide-react';
+import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut, Link } from 'lucide-react'; // Adicionei Link aqui
 import { WalletData } from '../types';
 import MedalDetailModal from '../components/MedalDetailModal';
+import { EditGoalModal } from '../components/EditGoalModal'; // 1. Importe o Modal
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -30,6 +31,7 @@ const MOCK_MEDALS = [
   { id: '3', icon: 'check-circle', name: 'Meta Concluída', description: 'Parabéns! Você alcançou sua primeira meta financeira.' },
 ];
 
+// 2. Atualize a interface para incluir linked_account_name
 interface RealGoal {
   id: string;
   title: string;
@@ -37,6 +39,7 @@ interface RealGoal {
   current_amount: number;
   progress: number;
   is_automated: boolean;
+  linked_account_name?: string; 
 }
 
 const getIconComponent = (iconName: string, className?: string) => {
@@ -69,6 +72,10 @@ interface WalletScreenProps {
 
 export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, onShowAllMedals, onShowSpendingHistory, onShowInvestmentHistory, onShowDailySpendingHistory, onShowProfile, onCreateGoal }: WalletScreenProps) {
   const [selectedMedal, setSelectedMedal] = useState<{ id: string; icon: string; name: string; description: string; earned?: boolean } | null>(null);
+  
+  // Novo estado para controlar a meta selecionada para edição
+  const [selectedGoal, setSelectedGoal] = useState<RealGoal | null>(null);
+  
   const [showMenu, setShowMenu] = useState(false);
   const [goals, setGoals] = useState<RealGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
@@ -85,20 +92,24 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // 3. Função extraída para permitir recarregamento (refresh)
+  const fetchGoals = async () => {
+    // Evita loading spinner piscando se já tiver dados e for apenas um refresh silencioso
+    if (goals.length === 0) setLoadingGoals(true);
+    
+    try {
+      const { data, error } = await supabase.rpc('get_goals_with_progress');
+      if (error) throw error;
+      setGoals(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar metas:', err);
+    } finally {
+      setLoadingGoals(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'conquistas') {
-      const fetchGoals = async () => {
-        setLoadingGoals(true);
-        try {
-          const { data, error } = await supabase.rpc('get_goals_with_progress');
-          if (error) throw error;
-          setGoals(data || []);
-        } catch (err) {
-          console.error('Erro ao buscar metas:', err);
-        } finally {
-          setLoadingGoals(false);
-        }
-      };
       fetchGoals();
     }
   }, [activeTab]);
@@ -340,7 +351,12 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                   </div>
                 ) : (
                   goals.slice(0, 2).map((goal) => (
-                    <div key={goal.id} className="bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700">
+                    // 4. Transformado em botão clicável para edição
+                    <button 
+                      key={goal.id} 
+                      onClick={() => setSelectedGoal(goal)}
+                      className="w-full text-left bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98] hover:border-emerald-500/30"
+                    >
                       <div className="flex items-center">
                         <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mr-4 text-emerald-600 dark:text-emerald-400">
                           <Umbrella size={24} />
@@ -349,7 +365,10 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                           <div className="flex justify-between items-start">
                             <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
                             {goal.is_automated && (
-                              <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">AUTO</span>
+                              <span className="text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                                <Link size={8} />
+                                AUTO
+                              </span>
                             )}
                           </div>
                           <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden">
@@ -364,7 +383,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -389,6 +408,17 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
 
       {selectedMedal && (
         <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />
+      )}
+
+      {/* 5. Renderização do Modal de Edição */}
+      {selectedGoal && (
+        <EditGoalModal 
+          goal={selectedGoal} 
+          onClose={() => setSelectedGoal(null)} 
+          onSuccess={() => {
+            fetchGoals(); // Atualiza a lista após editar/excluir
+          }}
+        />
       )}
     </div>
   );
