@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut } from 'lucide-react';
-import { WalletData, AchievementsData } from '../types';
+import { WalletData } from '../types';
 import MedalDetailModal from '../components/MedalDetailModal';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const MOCK_WALLET_DATA: WalletData = {
   savingsHelp: 542.30,
@@ -23,35 +24,20 @@ const MOCK_WALLET_DATA: WalletData = {
   currentMonth: 'Janeiro',
 };
 
-const MOCK_ACHIEVEMENTS_DATA: AchievementsData = {
-  medals: [
-    { id: '1', icon: 'award', name: 'Mestre da Poupança', description: 'Parabéns! Você demonstrou disciplina exemplar ao manter uma poupança consistente e construir sua reserva financeira.' },
-    { id: '2', icon: 'rocket', name: 'Investidor Pioneiro', description: 'Parabéns! Você realizou seu primeiro investimento e deu o primeiro passo na sua jornada para a independência financeira.' },
-    { id: '3', icon: 'check-circle', name: 'Meta Concluída', description: 'Parabéns! Você alcançou sua primeira meta financeira, demonstrando foco e determinação.' },
-  ],
-  goals: [
-    {
-      id: '1',
-      name: 'Viagem para a Praia',
-      icon: 'umbrella',
-      iconColor: 'text-teal-500',
-      iconBgColor: 'bg-teal-100 dark:bg-teal-900',
-      progress: 75,
-      current: 750,
-      target: 1000,
-    },
-    {
-      id: '2',
-      name: 'Reserva de Emergência',
-      icon: 'umbrella',
-      iconColor: 'text-emerald-500',
-      iconBgColor: 'bg-emerald-100 dark:bg-emerald-900',
-      progress: 50,
-      current: 2500,
-      target: 5000,
-    },
-  ],
-};
+const MOCK_MEDALS = [
+  { id: '1', icon: 'award', name: 'Mestre da Poupança', description: 'Parabéns! Você demonstrou disciplina exemplar ao manter uma poupança consistente.' },
+  { id: '2', icon: 'rocket', name: 'Investidor Pioneiro', description: 'Parabéns! Você realizou seu primeiro investimento.' },
+  { id: '3', icon: 'check-circle', name: 'Meta Concluída', description: 'Parabéns! Você alcançou sua primeira meta financeira.' },
+];
+
+interface RealGoal {
+  id: string;
+  title: string;
+  target_amount: number;
+  current_amount: number;
+  progress: number;
+  is_automated: boolean;
+}
 
 const getIconComponent = (iconName: string, className?: string) => {
   const iconProps = { className: className || '', size: 24 };
@@ -84,6 +70,8 @@ interface WalletScreenProps {
 export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, onShowAllMedals, onShowSpendingHistory, onShowInvestmentHistory, onShowDailySpendingHistory, onShowProfile, onCreateGoal }: WalletScreenProps) {
   const [selectedMedal, setSelectedMedal] = useState<{ id: string; icon: string; name: string; description: string; earned?: boolean } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [goals, setGoals] = useState<RealGoal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
 
@@ -93,10 +81,27 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
         setShowMenu(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'conquistas') {
+      const fetchGoals = async () => {
+        setLoadingGoals(true);
+        try {
+          const { data, error } = await supabase.rpc('get_goals_with_progress');
+          if (error) throw error;
+          setGoals(data || []);
+        } catch (err) {
+          console.error('Erro ao buscar metas:', err);
+        } finally {
+          setLoadingGoals(false);
+        }
+      };
+      fetchGoals();
+    }
+  }, [activeTab]);
 
   const handleProfileClick = () => {
     onShowProfile();
@@ -174,7 +179,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                   <span className="text-xs font-medium">Economia</span>
                 </div>
                 <p className="text-sm text-stone-700 dark:text-stone-200 leading-tight mb-2">
-                 <b> Poupei com a  Odete </b> 
+                 <b> Poupei com a Odete </b> 
                 </p>
                 <p className="text-primary font-bold text-lg">
                   R$ {MOCK_WALLET_DATA.savingsHelp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -189,7 +194,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                   <span className="text-xs font-medium">Investimentos</span>
                 </div>
                 <p className="text-sm text-stone-700 dark:text-stone-200 leading-tight mb-2">
-                 <b>  Ganhei com a  Odete </b> 
+                 <b> Ganhei com a Odete </b> 
                 </p>
                 <p className="text-primary font-bold text-lg">
                   R$ {MOCK_WALLET_DATA.investmentHelp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -295,7 +300,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                 </button>
               </div>
               <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
-                {MOCK_ACHIEVEMENTS_DATA.medals.map((medal) => (
+                {MOCK_MEDALS.map((medal) => (
                   <button
                     key={medal.id}
                     onClick={() => setSelectedMedal({ ...medal, earned: true })}
@@ -327,44 +332,57 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
                 </button>
               </div>
               <div className="space-y-3">
-                {MOCK_ACHIEVEMENTS_DATA.goals.map((goal) => (
-                  <div key={goal.id} className="bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center">
-                      <div className={`${goal.iconBgColor} p-3 rounded-full mr-4`}>
-                        <div className={goal.iconColor}>
-                          {getIconComponent(goal.icon)}
+                {loadingGoals ? (
+                  <div className="text-center py-8 text-stone-500">Carregando...</div>
+                ) : goals.length === 0 ? (
+                  <div className="p-4 bg-white dark:bg-stone-800 rounded-2xl text-center text-stone-500 text-sm">
+                    Nenhuma meta criada ainda.
+                  </div>
+                ) : (
+                  goals.slice(0, 2).map((goal) => (
+                    <div key={goal.id} className="bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700">
+                      <div className="flex items-center">
+                        <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mr-4 text-emerald-600 dark:text-emerald-400">
+                          <Umbrella size={24} />
                         </div>
-                      </div>
-                      <div className="w-full">
-                        <p className="font-semibold text-stone-900 dark:text-white">{goal.name}</p>
-                        <div className="w-full bg-stone-200 dark:bg-stone-700 rounded-full h-2 mt-2">
-                          <div
-                            className="bg-teal-400 h-2 rounded-full transition-all"
-                            style={{ width: `${goal.progress}%` }}
-                          ></div>
+                        <div className="w-full">
+                          <div className="flex justify-between items-start">
+                            <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
+                            {goal.is_automated && (
+                              <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold">AUTO</span>
+                            )}
+                          </div>
+                          <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden">
+                            <div
+                              className="bg-emerald-400 h-2 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${Math.min(goal.progress, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 text-right font-medium">
+                            R${goal.current_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}/
+                            R${goal.target_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}
+                          </p>
                         </div>
-                        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 text-right">
-                          R${goal.current.toFixed(2)}/R${goal.target.toFixed(2)}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
 
             {onCreateGoal && (
-  <div className="absolute bottom-0 right-0 flex flex-col items-center gap-2 z-50"> 
-  
-    <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Nova Meta</span>
-    <button
-      onClick={onCreateGoal}
-      className="w-16 h-16 bg-stone-800 dark:bg-stone-700 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
-    >
-      <Plus size={32} strokeWidth={1.5} />
-    </button>
-  </div>
-)}
+              <div className="absolute bottom-0 right-0 flex flex-col items-center gap-2 z-50"> 
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-300 bg-white/80 dark:bg-black/50 px-2 py-1 rounded-lg backdrop-blur-sm">
+                  Nova Meta
+                </span>
+                <button
+                  onClick={onCreateGoal}
+                  className="w-16 h-16 bg-stone-800 dark:bg-stone-700 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors hover:scale-105 transform duration-200"
+                >
+                  <Plus size={32} strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
           </main>
         )}
       </div>
