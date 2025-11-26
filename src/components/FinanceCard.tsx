@@ -135,7 +135,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
 
           <div className="space-y-3 mt-4">
             <div className="flex justify-between text-sm text-stone-600 dark:text-stone-400 font-medium items-end">
-              <span className="text-xs">Restam {daysLeft} dias</span>
+              <span className="text-xs">{daysLeft} dias para o fim do mês</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                 {toMoney(dailyAvailable)} / dia
               </span>
@@ -189,7 +189,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
 
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div className="rounded-2xl bg-white/70 p-3 text-center dark:bg-stone-800/50 shadow-sm">
-              <p className="text-[10px] uppercase tracking-wider text-stone-500 dark:text-stone-400 font-bold mb-1">
+              <p className="text-[10px]  tracking-wider text-stone-500 dark:text-stone-400 font-bold mb-1">
                 Entradas
               </p>
               <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">
@@ -197,7 +197,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
               </p>
             </div>
             <div className="rounded-2xl bg-white/70 p-3 text-center dark:bg-stone-800/50 shadow-sm">
-              <p className="text-[10px] uppercase tracking-wider text-stone-500 dark:text-stone-400 font-bold mb-1">
+              <p className="text-[10px]  tracking-wider text-stone-500 dark:text-stone-400 font-bold mb-1">
                 Saídas
               </p>
               <p className="text-base font-bold text-red-500 dark:text-red-400">

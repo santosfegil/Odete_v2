@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Mic, Phone, User, LogOut, Smile, Paperclip, Camera } from 'lucide-react';
+import { Send, Mic, Phone, User, LogOut, Paperclip, Camera, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 type ChatMode = 'mimar' | 'julgar';
@@ -108,40 +108,42 @@ export default function ChatScreen({ onShowProfile }: ChatScreenProps) {
     setInput(suggestion);
   };
 
-  const bgGradient =
-    mode === 'mimar'
-      ? 'from-stone-50 via-stone-100 to-emerald-50/50'
-      : 'from-stone-50 via-stone-100 to-rose-50/50';
-
-  const getLastSeen = () => {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    return `visto `;
-  };
+  // Fundo limpo ou gradiente suave conforme o print
+  const bgClass = 'bg-stone-50'; 
 
   return (
-    <div className={`flex-1 flex flex-col h-full bg-gradient-to-b ${bgGradient} transition-all duration-500 relative`}>
+    <div className={`flex-1 flex flex-col h-full ${bgClass} relative`}>
 
-      {/* Header */}
-      <div className="bg-emerald-700 px-3 pt-3 pb-2 shadow-md z-20">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-emerald-200 rounded-full flex items-center justify-center text-base flex-shrink-0">
-            🤖
+      {/* Header - Estilo WhatsApp/Print (Verde Claro) */}
+      <div className="bg-emerald-100 px-4 py-3 shadow-sm z-20 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Avatar da Odete */}
+          <div className="relative">
+            <div className="w-10 h-10 bg-stone-900 rounded-full overflow-hidden border-2 border-white">
+               {/* Substitua pelo <img /> se tiver a foto da Odete, aqui uso um placeholder */}
+               <div className="w-full h-full flex items-center justify-center bg-stone-800 text-white text-xs">
+                 👩🏻
+               </div>
+            </div>
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-emerald-100 rounded-full"></div>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-white font-medium text-sm leading-tight">Odete</h2>
-            <p className="text-emerald-100 text-[11px] leading-tight">{getLastSeen()}</p>
+          
+          <div className="flex flex-col">
+            <h2 className="text-emerald-950 font-bold text-base leading-tight">Odete</h2>
+            <p className="text-emerald-700/80 text-xs font-medium">visto</p>
           </div>
-          <button className="p-1.5 hover:bg-emerald-600 rounded-full transition-colors">
-            <Phone size={20} className="text-white" />
+        </div>
+
+        <div className="flex items-center gap-4 text-emerald-800" ref={menuRef}>
+          <button className="hover:bg-emerald-200/50 p-2 rounded-full transition-colors">
+            <Phone size={22} />
           </button>
-          <div className="relative" ref={menuRef}>
+          <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1.5 hover:bg-emerald-600 rounded-full transition-colors"
+              className="hover:bg-emerald-200/50 p-2 rounded-full transition-colors"
             >
-              <User size={20} className="text-white" />
+              <User size={22} />
             </button>
 
             {showMenu && (
@@ -166,25 +168,25 @@ export default function ChatScreen({ onShowProfile }: ChatScreenProps) {
         </div>
       </div>
 
-      {/* Mode Toggles */}
-      <div className="px-3 pt-3 pb-2 z-10">
-        <div className="bg-white/80 backdrop-blur-sm border border-stone-200 shadow-sm rounded-full p-1 flex items-center">
+      {/* Mode Toggles - Flutuante logo abaixo do header */}
+      <div className="flex justify-center mt-4 mb-2 z-10">
+        <div className="bg-white shadow-sm border border-stone-100 rounded-full p-1 flex items-center gap-1">
           <button
             onClick={() => setMode('mimar')}
-            className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 py-1.5 px-4 rounded-full text-sm font-bold transition-all ${
               mode === 'mimar'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'text-stone-400 hover:text-stone-600'
             }`}
           >
             😇 Mimar
           </button>
           <button
             onClick={() => setMode('julgar')}
-            className={`flex-1 py-2.5 px-4 rounded-full text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 py-1.5 px-4 rounded-full text-sm font-bold transition-all ${
               mode === 'julgar'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
+                ? 'bg-orange-100 text-orange-600'
+                : 'text-stone-400 hover:text-stone-600'
             }`}
           >
             🔥 Julgar
@@ -193,101 +195,102 @@ export default function ChatScreen({ onShowProfile }: ChatScreenProps) {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-3 space-y-3 pb-4">
+      <div className="flex-1 overflow-y-auto px-4 space-y-4 pb-4">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] px-5 py-3 rounded-3xl ${
+              className={`max-w-[80%] px-5 py-3.5 rounded-2xl shadow-sm text-[15px] leading-relaxed ${
                 message.sender === 'user'
-                  ? 'bg-stone-900 text-white rounded-tr-none shadow-sm'
-                  : 'bg-white text-stone-900 border border-stone-200 rounded-tl-none shadow-sm'
+                  ? 'bg-emerald-100 text-emerald-900 rounded-tr-none'
+                  : 'bg-white text-stone-800 border border-stone-100 rounded-tl-none'
               }`}
             >
-              <p className="text-sm leading-relaxed">{message.text}</p>
+              {message.text}
             </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
-
-        {/* Espaço reservado para os controles fixos */}
+        
+        {/* Espaço para não cobrir a última mensagem com o input */}
         <div className="h-[140px]"></div>
       </div>
 
-<div className="absolute bottom-24 left-0 right-0 z-50 flex flex-col gap-2 px-2 pb-2 pt-3 bg-gradient-to-t from-stone-100 via-stone-50/95 to-transparent">
+      {/* Input Area - Footer */}
+      <div className="absolute bottom-20 left-0 right-0 z-50 flex flex-col gap-3 px-4 pb-4 pt-2 bg-gradient-to-t from-stone-50 via-stone-50 to-transparent">
 
-        {/* Suggestions */}
+        {/* Suggestions Chips */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {SUGGESTIONS.map((suggestion) => (
             <button
               key={suggestion}
               onClick={() => handleSuggestionClick(suggestion)}
-              className="flex-shrink-0 px-3 py-1.5 bg-white/90 backdrop-blur border border-stone-200 text-stone-700 text-xs font-medium rounded-full hover:bg-stone-50 transition-colors shadow-sm whitespace-nowrap"
+              className="flex-shrink-0 px-4 py-2 bg-white border border-stone-200 text-stone-600 text-xs font-semibold rounded-full hover:bg-stone-100 active:scale-95 transition-all shadow-sm whitespace-nowrap"
             >
               {suggestion}
             </button>
           ))}
         </div>
 
-        {/* Input Bar */}
-        <div className="flex items-end gap-1.5">
-          <div className="flex-1 bg-stone-800 rounded-3xl shadow-xl overflow-hidden">
-            <div className="flex items-center px-2 py-1.5">
+        {/* Input Bar estilizado conforme pedido */}
+        <div className="flex items-end gap-2">
+          <div className="flex-1 bg-white rounded-3xl shadow-md border border-stone-200 flex items-center px-2 py-1.5 min-h-[54px]">
+            
+            {/* Botão + na esquerda */}
+            <button
+              className="w-10 h-10 flex items-center justify-center text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors flex-shrink-0"
+              onClick={() => console.log('More actions')}
+            >
+              <Plus size={24} />
+            </button>
 
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Mensagem"
+              rows={1}
+              className="flex-1 bg-transparent text-stone-800 placeholder-stone-400 text-[15px] focus:outline-none resize-none max-h-[100px] overflow-y-auto leading-5 py-3 px-2"
+            />
+
+            <div className="flex items-center gap-1 mr-1">
               <button
-                className="p-1.5 text-white/70 hover:text-white transition-colors flex-shrink-0"
-                onClick={() => console.log('Emoji picker')}
-              >
-                <Smile size={20} />
-              </button>
-
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Mensagem"
-                rows={1}
-                className="flex-1 bg-transparent text-white placeholder-stone-400 text-[15px] focus:outline-none resize-none max-h-[100px] overflow-y-auto leading-5 px-2 py-2"
-              />
-
-              <button
-                className="p-1.5 text-white/70 hover:text-white transition-colors flex-shrink-0"
+                className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors"
                 onClick={() => console.log('Attach file')}
               >
                 <Paperclip size={20} />
               </button>
 
               <button
-                className="p-1.5 text-white/70 hover:text-white transition-colors flex-shrink-0"
+                className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors"
                 onClick={() => console.log('Camera')}
               >
                 <Camera size={20} />
               </button>
-
             </div>
           </div>
 
+          {/* Botão Mic/Send separado */}
           <button
             onClick={input.trim() ? handleSend : () => console.log('Voice message')}
-            className="w-10 h-10 bg-emerald-500 hover:bg-emerald-600 rounded-full flex items-center justify-center transition-colors shadow-lg flex-shrink-0 mb-0.5"
+            className="w-[54px] h-[54px] bg-emerald-400 hover:bg-emerald-500 active:scale-95 rounded-full flex items-center justify-center transition-all shadow-lg flex-shrink-0 text-emerald-950"
           >
             {input.trim() ? (
-              <Send size={18} className="text-white" />
+              <Send size={22} className="ml-0.5" />
             ) : (
-              <Mic size={18} className="text-white" />
+              <Mic size={22} />
             )}
           </button>
         </div>
       </div>
-      
 
     </div>
   );

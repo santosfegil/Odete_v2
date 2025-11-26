@@ -1,109 +1,169 @@
-import { ChevronLeft, ChevronLeft as ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowLeft, Calendar } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-
-interface MonthData {
-  month_label: string;
-  year_num: number;
-  month_num: number;
-  total_spent: number;
-  total_budget: number;
-  status: 'success' | 'warning';
-}
 
 interface SpendingHistoryScreenProps {
   onBack: () => void;
 }
 
+interface YearData {
+  year: number;
+  total_invested: number;
+  monthly_goal: number;
+  history: {
+    month_num: number;
+    total: number;
+    status: 'success' | 'warning' | 'future' | 'empty';
+  }[];
+}
+
+const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenProps) {
-  const [history, setHistory] = useState<MonthData[]>([]);
+  const actualYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState(actualYear);
+  const [data, setData] = useState<YearData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const loadHistory = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const { data, error } = await supabase.rpc('get_spending_history');
+        const { data: result, error } = await supabase.rpc('get_investment_summary', { 
+          year_input: currentYear 
+        });
+
         if (error) throw error;
-        setHistory(data || []);
+        
+        const historyData = result.history || [];
+
+        setData({
+          year: currentYear,
+          total_invested: result.year_total || 0,
+          monthly_goal: result.monthly_goal || 0,
+          history: historyData
+        });
       } catch (err) {
-        console.error('Erro ao carregar histórico:', err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    loadHistory();
-  }, []);
 
-  const handlePrevious = () => setCurrentIndex((prev) => Math.max(0, prev - 1));
-  const handleNext = () => setCurrentIndex((prev) => Math.min(history.length - 1, prev + 1));
+    fetchData();
+  }, [currentYear]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-500" />
-      </div>
-    );
-  }
+  const handlePrevious = () => setCurrentYear(prev => prev - 1);
+  const handleNext = () => setCurrentYear(prev => prev + 1);
+  const handleBackToCurrent = () => setCurrentYear(actualYear);
 
-  if (history.length === 0) {
-    return (
-      <div className="min-h-screen bg-stone-50 p-6">
-        <header className="flex items-center mb-6">
-          <button onClick={onBack} className="p-2 hover:bg-stone-200 rounded-full"><ChevronLeft /></button>
-          <h1 className="font-bold ml-2">Histórico</h1>
-        </header>
-        <p className="text-center text-stone-500">Ainda não há histórico de gastos.</p>
-      </div>
-    );
-  }
-
-  const currentData = history[currentIndex];
-  const progress = currentData.total_budget > 0 
-    ? Math.min((currentData.total_spent / currentData.total_budget) * 100, 100) 
-    : 0;
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'success':
+        return 'bg-emerald-500 text-white hover:bg-emerald-600 border-none';
+      case 'warning':
+        return 'bg-amber-400 text-white hover:bg-amber-500 border-none';
+      case 'future':
+        return 'bg-stone-50 text-stone-300 dark:bg-stone-900 dark:text-stone-600 border border-stone-100 dark:border-stone-800';
+      default: 
+        return 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400 border border-stone-200 dark:border-stone-700';
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-white pb-8">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-white pb-24 flex flex-col">
       <header className="bg-white dark:bg-stone-900 p-4 flex items-center shadow-sm sticky top-0 z-10">
-        <button onClick={onBack} className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors">
-          <ChevronLeft size={24} />
+        <button
+          onClick={onBack}
+          className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"
+        >
+          <ArrowLeft size={24} />
         </button>
-        <h1 className="text-lg font-bold ml-2">Histórico de Gastos</h1>
+        <h1 className="text-lg font-bold ml-2">Histórico de Investimentos</h1>
       </header>
 
-      <div className="p-6 space-y-6">
-        <div className="bg-white dark:bg-stone-900 rounded-3xl p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">{currentData.month_label} <span className="text-sm text-stone-400">{currentData.year_num}</span></h2>
-            <div className="flex gap-2">
-              <button onClick={handleNext} disabled={currentIndex === history.length - 1} className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full disabled:opacity-50">
-                <ArrowLeft size={20} />
-              </button>
-              <button onClick={handlePrevious} disabled={currentIndex === 0} className="p-2 bg-stone-100 dark:bg-stone-800 rounded-full disabled:opacity-50">
-                <ChevronRight size={20} />
-              </button>
+      <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex justify-center mt-10 text-stone-500">Carregando...</div>
+        ) : (
+          <div className="bg-white dark:bg-stone-900 rounded-[2rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative">
+            
+            {/* Header do Ano + Navegação */}
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <h2 className="text-4xl font-extrabold tracking-tight">{currentYear}</h2>
+                
+                {/* Botão "Atual" idêntico ao do FinanceCard */}
+                {currentYear !== actualYear && (
+                  <button 
+                    onClick={handleBackToCurrent}
+                    className="flex items-center gap-1 p-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all animate-in fade-in zoom-in"
+                    title="Voltar para o ano atual"
+                  >
+                    <Calendar size={12} />
+                    Atual
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handlePrevious}
+                  className="w-10 h-10 flex items-center justify-center bg-stone-100 dark:bg-stone-800 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="w-10 h-10 flex items-center justify-center bg-stone-100 dark:bg-stone-800 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
-          </div>
 
-          <p className="text-stone-600 dark:text-stone-400 text-sm mb-4">
-            {currentData.status === 'success' 
-              ? 'Excelente! Você ficou dentro do orçamento.' 
-              : 'Atenção: Você ultrapassou seu limite planejado.'}
-          </p>
+            {/* Texto Descritivo */}
+            <p className="text-stone-600 dark:text-stone-300 text-sm mb-8 leading-relaxed font-medium">
+              <strong className="text-emerald-600 text-xl dark:text-emerald-400 font-bold mr-1"> 
+                 R$ {data?.total_invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+              </strong>
+              <div> é o seu valor investido em {currentYear}</div>
+            </p>
 
-          <div className="flex justify-between items-center text-sm font-semibold mb-2">
-            <span>R$ {currentData.total_spent.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-            <span className="text-stone-400">Meta: R$ {currentData.total_budget.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-          </div>
+            {/* Grid de Meses */}
+            <div className="grid grid-cols-4 gap-3">
+              {MONTH_NAMES.map((name, index) => {
+                const monthStatus = data?.history.find(h => h.month_num === index + 1);
+                const status = monthStatus ? monthStatus.status : 'empty';
+                const total = monthStatus ? monthStatus.total : 0;
 
-          <div className="w-full bg-stone-200 dark:bg-stone-800 rounded-full h-2 mb-6">
-            <div
-              className={`h-2 rounded-full transition-all ${currentData.status === 'success' ? 'bg-emerald-400' : 'bg-yellow-400'}`}
-              style={{ width: `${progress}%` }}
-            ></div>
+                return (
+                  <div
+                    key={index}
+                    className={`
+                      aspect-[4/3] flex items-center justify-center rounded-2xl text-xs font-bold transition-all
+                      ${getStatusStyle(status)}
+                    `}
+                    title={`Investido: R$ ${total.toFixed(2)}`}
+                  >
+                    {name}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legenda */}
+            <div className="mt-8 flex gap-6 justify-center text-[10px] text-stone-500 dark:text-stone-400 font-bold">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Meta batida
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div> Parcial
+              </div>
+            </div>
+
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut, Link } from 'lucide-react'; // Adicionei Link aqui
+import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut, Link } from 'lucide-react';
 import { WalletData } from '../types';
 import MedalDetailModal from '../components/MedalDetailModal';
-import { EditGoalModal } from '../components/EditGoalModal'; // 1. Importe o Modal
+import { EditGoalModal } from '../components/EditGoalModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { GoalCard } from '../components/GoalCard'; // Importe o novo componente
+import { ChallengeCard } from '../components/ChallengeCard';
 
 const MOCK_WALLET_DATA: WalletData = {
   savingsHelp: 542.30,
@@ -26,13 +26,24 @@ const MOCK_WALLET_DATA: WalletData = {
   currentMonth: 'Janeiro',
 };
 
-
-// Interface para os gastos diários do Banco
-interface DailySpending {
-  day_label: string;
-  total_spent: number;
-  status: 'success' | 'failed' | 'today';
-}
+const MOCK_CHALLENGE_DATA = {
+  id: '1',
+  category: 'delivery',
+  title: 'Desafio de Gastos: Delivery',
+  currentAmount: 27.50,
+  targetAmount: 50.00,
+  averageSpent: 85,
+  savingTarget: 35,
+  weekProgress: [
+    { day: 'S', status: 'success' },
+    { day: 'T', status: 'success' },
+    { day: 'Q', status: 'today' }, // Hoje
+    { day: 'Q', status: 'pending' },
+    { day: 'S', status: 'pending' },
+    { day: 'S', status: 'pending' },
+    { day: 'D', status: 'pending' },
+  ] as any // Cast rápido para evitar conflito com tipos estritos se não tiver atualizado tudo
+};
 
 const MOCK_MEDALS = [
   { id: '1', icon: 'award', name: 'Mestre da Poupança', description: 'Parabéns! Você demonstrou disciplina exemplar ao manter uma poupança consistente.' },
@@ -40,7 +51,6 @@ const MOCK_MEDALS = [
   { id: '3', icon: 'check-circle', name: 'Meta Concluída', description: 'Parabéns! Você alcançou sua primeira meta financeira.' },
 ];
 
-// 2. Atualize a interface para incluir linked_account_name
 interface RealGoal {
   id: string;
   title: string;
@@ -49,6 +59,12 @@ interface RealGoal {
   progress: number;
   is_automated: boolean;
   linked_account_name?: string; 
+}
+
+interface InvestmentSummary {
+  current_month_total: number;
+  year_total: number;
+  monthly_goal: number;
 }
 
 const getIconComponent = (iconName: string, className?: string) => {
@@ -81,16 +97,14 @@ interface WalletScreenProps {
 
 export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, onShowAllMedals, onShowSpendingHistory, onShowInvestmentHistory, onShowDailySpendingHistory, onShowProfile, onCreateGoal }: WalletScreenProps) {
   const [selectedMedal, setSelectedMedal] = useState<{ id: string; icon: string; name: string; description: string; earned?: boolean } | null>(null);
-  
-  const [dailySpending, setDailySpending] = useState<DailySpending[]>([]);
-  const [dailyBudget, setDailyBudget] = useState(0);
-
-  // Novo estado para controlar a meta selecionada para edição
   const [selectedGoal, setSelectedGoal] = useState<RealGoal | null>(null);
-  
   const [showMenu, setShowMenu] = useState(false);
   const [goals, setGoals] = useState<RealGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
+  
+  // State for real investment summary
+  const [investmentSummary, setInvestmentSummary] = useState<InvestmentSummary | null>(null);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
 
@@ -104,25 +118,8 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const fetchDailySpending = async () => {
-      if (activeTab !== 'controle') return;
-      
-      const { data, error } = await supabase.rpc('get_weekly_daily_spending');
-      if (!error && data) {
-        setDailySpending(data);
-        if (data.length > 0) setDailyBudget(data[0].daily_limit);
-      }
-    };
-    fetchDailySpending();
-  }, [activeTab]);
-
-
-  // 3. Função extraída para permitir recarregamento (refresh)
   const fetchGoals = async () => {
-    // Evita loading spinner piscando se já tiver dados e for apenas um refresh silencioso
     if (goals.length === 0) setLoadingGoals(true);
-    
     try {
       const { data, error } = await supabase.rpc('get_goals_with_progress');
       if (error) throw error;
@@ -134,9 +131,22 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     }
   };
 
+  const fetchInvestmentSummary = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_investment_summary', { year_input: new Date().getFullYear() });
+      if (!error && data) {
+        setInvestmentSummary(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'conquistas') {
       fetchGoals();
+    } else if (activeTab === 'controle') {
+      fetchInvestmentSummary();
     }
   }, [activeTab]);
 
@@ -149,6 +159,15 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     setShowMenu(false);
     await signOut();
   };
+
+  // Definindo variáveis de data e valores
+  const now = new Date();
+  const currentMonthName = now.toLocaleString('pt-BR', { month: 'long' });
+  const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
+
+  const currentInvested = investmentSummary?.current_month_total || 0;
+  const monthlyGoal = investmentSummary?.monthly_goal || 500;
+  const progressPercent = Math.min((currentInvested / monthlyGoal) * 100, 100);
 
   return (
     <div className="flex-1 overflow-y-auto pb-32">
@@ -207,6 +226,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
 
         {activeTab === 'controle' ? (
           <main className="space-y-6">
+            {/* CARDS SUPERIORES (ECONOMIA E INVESTIMENTOS) - RESTAURADOS */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-emerald-50 dark:bg-emerald-950 p-4 rounded-3xl shadow-sm">
                 <div className="flex items-center text-stone-500 dark:text-stone-400 mb-1">
@@ -239,107 +259,70 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
               </div>
             </div>
 
+            {/* CARD MEUS GASTOS - RESTAURADO */}
             <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl shadow-sm">
-            <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-stone-800 dark:text-white">
-                  Meus Gastos (Semana)
+                  Meus Gastos
                 </h2>
-                
-                {/* Botão "Ver todas" corrigido (Estilo Pill Escuro) */}
                 <button
                   onClick={onShowDailySpendingHistory}
-                  className="flex items-center gap-1 bg-stone-900 dark:bg-stone-700 text-white text-xs font-bold py-2 px-4 rounded-full hover:bg-stone-800 dark:hover:bg-stone-600 transition-colors shadow-sm"
-                >
-                  Ver tudo
-                  <ArrowRight size={12} strokeWidth={3} />
-                </button>
-              </div>
-
-              <p className="text-stone-500 dark:text-stone-400 mb-6 text-sm">
-                Média diária permitida: <b>R${dailyBudget.toFixed(2)}</b>
-              </p>
-
-              <div className="flex justify-between text-center text-stone-400 dark:text-stone-500 text-xs font-bold">
-                {dailySpending.length === 0 ? (
-                  <p className="w-full text-center text-sm py-2 text-stone-400 font-normal italic">
-                    Carregando semana...
-                  </p>
-                ) : (
-                  dailySpending.map((day, index) => (
-                    <div key={index} className="flex flex-col items-center space-y-2">
-                      <span>{day.day_label}</span>
-                      
-                      {/* Lógica de Status das Bolinhas */}
-                      {day.status === 'success' && (
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                          <Check size={16} className="text-white" strokeWidth={3} />
-                        </div>
-                      )}
-                      {day.status === 'failed' && (
-                        <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
-                          <X size={16} className="text-white" strokeWidth={3} />
-                        </div>
-                      )}
-                      {day.status === 'today' && (
-                        <div className="flex flex-col items-center">
-                          <div className="w-10 h-10 rounded-full bg-emerald-300 flex items-center justify-center ring-2 ring-emerald-400 dark:ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-stone-900 shadow-md">
-                             {/* Opcional: Colocar valor gasto hoje dentro da bolinha se quiser */}
-                          </div>
-                          <span className="text-stone-800 dark:text-stone-200 text-[10px] font-bold mt-1">Hoje</span>
-                        </div>
-                      )}
-                      {day.status === 'pending' && (
-                        <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center border border-stone-200 dark:border-stone-700">
-                          {/* Dias futuros ficam vazios/cinza */}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-           
-            </div>
-
-            <div className="bg-stone-100 dark:bg-stone-900 p-6 rounded-3xl shadow-sm">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-stone-800 dark:text-white">Investimento Mensal</h2>
-                  <p className="text-stone-500 dark:text-stone-400 text-sm">
-                    Invista R$ {MOCK_WALLET_DATA.monthlyInvestmentGoal.toFixed(2)}/ mês.
-                  </p>
-                </div>
-                <button
-                  onClick={onShowInvestmentHistory}
-                  className="bg-stone-800 dark:bg-stone-700 text-white text-xs font-semibold py-2 px-4 rounded-full flex items-center -mt-1 ml-4 hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
+                  className="bg-stone-800 dark:bg-stone-700 text-white text-xs font-semibold py-2 px-4 rounded-full flex items-center hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
                 >
                   Ver todas
                   <ArrowRight size={14} className="ml-1" />
                 </button>
               </div>
+              <p className="text-stone-500 dark:text-stone-400 mb-6 text-sm">
+                Você ainda pode gastar R${MOCK_WALLET_DATA.dailyBudgetLeft.toFixed(2)} hoje.
+              </p>
 
-              <div className="w-full bg-stone-200 dark:bg-stone-800 rounded-full h-2 mb-4">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${MOCK_WALLET_DATA.monthlyInvestmentProgress}%` }}
-                ></div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <p className="text-stone-800 dark:text-stone-100 font-semibold text-sm">
-                  {MOCK_WALLET_DATA.currentMonth}
-                </p>
-                <p className="text-primary font-semibold text-sm">
-                  R$ {MOCK_WALLET_DATA.monthlyInvestmentCurrent.toFixed(2)} / R${' '}
-                  {MOCK_WALLET_DATA.monthlyInvestmentGoal.toFixed(2)}
-                </p>
+              <div className="flex justify-between text-center text-stone-400 dark:text-stone-500 text-xs font-bold">
+                {MOCK_WALLET_DATA.dailySpending.map((day, index) => (
+                  <div key={index} className="flex flex-col items-center space-y-2">
+                    <span>{day.day}</span>
+                    {day.status === 'success' && (
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                        <Check size={16} className="text-white" />
+                      </div>
+                    )}
+                    {day.status === 'failed' && (
+                      <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
+                        <X size={16} className="text-white" />
+                      </div>
+                    )}
+                    {day.status === 'today' && (
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-full bg-emerald-300 flex items-center justify-center ring-2 ring-emerald-400 dark:ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-stone-900"></div>
+                        <span className="text-stone-800 dark:text-stone-200 text-[10px] font-semibold mt-1">
+                          Hoje
+                        </span>
+                      </div>
+                    )}
+                    {day.status === 'pending' && (
+                      <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
+                        <Clock size={16} className="text-stone-400 dark:text-stone-500" />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
+            <ChallengeCard 
+              data={MOCK_CHALLENGE_DATA}
+              onViewAll={() => console.log('Ver todos desafios')}
+              onEdit={() => console.log('Editar desafio')}
+            />
+
+          
+            
           </main>
         ) : (
           <main className="space-y-8 relative pb-20">
+            {/* Aba Conquistas (sem alterações) */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Minhas Medalhas</h2>
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Suas Medalhas</h2>
                 <button
                   onClick={onShowAllMedals}
                   className="flex items-center gap-1 text-sm font-semibold bg-stone-800 dark:bg-stone-700 text-white py-2 px-4 rounded-full hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
@@ -383,18 +366,44 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
               <div className="space-y-3">
                 {loadingGoals ? (
                   <div className="text-center py-8 text-stone-500">Carregando...</div>
+                ) : goals.length === 0 ? (
+                  <div className="p-4 bg-white dark:bg-stone-800 rounded-2xl text-center text-stone-500 text-sm">
+                    Nenhuma meta criada ainda.
+                  </div>
                 ) : (
                   goals.slice(0, 2).map((goal) => (
-                    <GoalCard
-                      key={goal.id}
-                      title={goal.title}
-                      targetAmount={goal.target_amount}
-                      currentAmount={goal.current_amount}
-                      progress={goal.progress}
-                      isAutomated={goal.is_automated}
-                      linkedAccountName={goal.linked_account_name}
+                    <button 
+                      key={goal.id} 
                       onClick={() => setSelectedGoal(goal)}
-                    />
+                      className="w-full text-left bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98] hover:border-emerald-500/30"
+                    >
+                      <div className="flex items-center">
+                        <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mr-4 text-emerald-600 dark:text-emerald-400">
+                          <Umbrella size={24} />
+                        </div>
+                        <div className="w-full">
+                          <div className="flex justify-between items-start">
+                            <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
+                            {goal.is_automated && (
+                              <span className="text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                                <Link size={8} />
+                                AUTO
+                              </span>
+                            )}
+                          </div>
+                          <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden">
+                            <div
+                              className="bg-emerald-400 h-2 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${Math.min(goal.progress, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 text-right font-medium">
+                            R${goal.current_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}/
+                            R${goal.target_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -421,13 +430,12 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
         <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />
       )}
 
-      {/* 5. Renderização do Modal de Edição */}
       {selectedGoal && (
         <EditGoalModal 
           goal={selectedGoal} 
           onClose={() => setSelectedGoal(null)} 
           onSuccess={() => {
-            fetchGoals(); // Atualiza a lista após editar/excluir
+            fetchGoals(); 
           }}
         />
       )}

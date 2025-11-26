@@ -112,3 +112,16 @@ export interface DashboardData {
   income: number;
   saved: number;
 }
+export interface WeeklyChallenge {
+  id: string;
+  category: string;
+  title: string;
+  currentAmount: number;
+  targetAmount: number;
+  averageSpent: number;
+  savingTarget: number;
+  weekProgress: {
+    day: string;
+    status: 'success' | 'failed' | 'pending' | 'today';
+  }[];
+}
