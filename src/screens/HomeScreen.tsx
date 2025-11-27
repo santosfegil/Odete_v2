@@ -3,18 +3,10 @@ import { Header } from '../components/HeaderHomeScreen';
 import { FinanceCard } from '../components/FinanceCard';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { MonthlyInvestmentCard } from '../components/MonthlyInvestmentCard'; // Importando o novo componente
-import { NextSteps } from '../components/NextSteps';
 import { EditPatrimonyModal } from '../components/EditPatrimonyModal';
-import { InvestmentData, NextStepTask } from '../types';
+import { InvestmentData } from '../types';
 import { supabase } from '../lib/supabase';
 import SpendingHistoryScreen from './SpendingHistoryScreen'; // Importando para navegação
-
-const INITIAL_TASKS: NextStepTask[] = [
-  { id: '1', label: 'Conectar dados de bancos', completed: true },
-  { id: '2', label: 'Definir orçamento', completed: false },
-  { id: '3', label: 'Definir metas', completed: false },
-  { id: '4', label: 'Adicionar patrimônio', completed: false },
-];
 
 interface HomeScreenProps {
   onShowProfile: () => void;
@@ -23,7 +15,6 @@ interface HomeScreenProps {
 
 export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<'gastos' | 'investimentos'>('gastos');
-  const [tasks, setTasks] = useState<NextStepTask[]>(INITIAL_TASKS);
   const [showEditModal, setShowEditModal] = useState(false);
   
   // Estado para controlar a exibição do histórico (navegação do card verde)
@@ -47,14 +38,6 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
     current: 0,
     goal: 500,
   });
-
-  const handleToggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
-  };
 
   // Buscar Patrimônio
   const fetchPatrimony = async () => {
@@ -122,14 +105,21 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
 
       <main className="flex-grow px-4 pb-4 animate-in fade-in duration-500">
         {activeTab === 'gastos' ? (
+          <>
+          
           <FinanceCard onShowBudget={onShowBudget} />
+    {/* Aplica uma margem superior (marginTop) ao InvestmentCard */}
+    <div style={{ marginTop: '20px' }}> 
+      <InvestmentCard
+        data={investmentData}
+        onEdit={() => setShowEditModal(true)}
+      />
+    </div>
+  </>
         ) : (
           <div className="space-y-6">
             {/* 1. Card de Patrimônio (Verde Escuro) */}
-            <InvestmentCard 
-              data={investmentData} 
-              onEdit={() => setShowEditModal(true)} 
-            />
+            
 
             {/* 2. Card de Investimento Mensal (Verde Claro) - Novo Componente */}
             <MonthlyInvestmentCard 
@@ -141,8 +131,6 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
           </div>
         )}
       </main>
-
-      {activeTab === 'gastos' && <NextSteps tasks={tasks} onToggleTask={handleToggleTask} />}
 
       {showEditModal && (
         <EditPatrimonyModal 
