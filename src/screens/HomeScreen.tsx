@@ -7,11 +7,14 @@ import { EditPatrimonyModal } from '../components/EditPatrimonyModal';
 import { InvestmentData } from '../types';
 import { supabase } from '../lib/supabase';
 import SpendingHistoryScreen from './SpendingHistoryScreen'; // Importando para navegação
+import { RetirementSimulatorMock } from '../components/RetirementSimulatorMock';
 
 interface HomeScreenProps {
   onShowProfile: () => void;
   onShowBudget: () => void;
 }
+
+
 
 export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<'gastos' | 'investimentos'>('gastos');
@@ -118,7 +121,8 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
   </>
         ) : (
           <div className="space-y-6">
-            {/* 1. Card de Patrimônio (Verde Escuro) */}
+            
+          
             
 
             {/* 2. Card de Investimento Mensal (Verde Claro) - Novo Componente */}
@@ -128,6 +132,8 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
               monthName={capitalizedMonth}
               onShowHistory={() => setShowInvestmentHistory(true)}
             />
+<RetirementSimulatorMock />
+
           </div>
         )}
       </main>

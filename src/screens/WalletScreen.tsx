@@ -6,6 +6,8 @@ import { EditGoalModal } from '../components/EditGoalModal';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { ChallengeCard } from '../components/ChallengeCard';
+// 1. IMPORTAR O NOVO COMPONENTE
+import FinancialFreedomSection from '../components/FinancialFreedomSection';
 
 const MOCK_WALLET_DATA: WalletData = {
   savingsHelp: 542.30,
@@ -37,12 +39,12 @@ const MOCK_CHALLENGE_DATA = {
   weekProgress: [
     { day: 'S', status: 'success' },
     { day: 'T', status: 'success' },
-    { day: 'Q', status: 'today' }, // Hoje
+    { day: 'Q', status: 'today' },
     { day: 'Q', status: 'pending' },
     { day: 'S', status: 'pending' },
     { day: 'S', status: 'pending' },
     { day: 'D', status: 'pending' },
-  ] as any // Cast rápido para evitar conflito com tipos estritos se não tiver atualizado tudo
+  ] as any 
 };
 
 const MOCK_MEDALS = [
@@ -102,7 +104,6 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
   const [goals, setGoals] = useState<RealGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
   
-  // State for real investment summary
   const [investmentSummary, setInvestmentSummary] = useState<InvestmentSummary | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -160,7 +161,6 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
     await signOut();
   };
 
-  // Definindo variáveis de data e valores
   const now = new Date();
   const currentMonthName = now.toLocaleString('pt-BR', { month: 'long' });
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
@@ -226,100 +226,19 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
 
         {activeTab === 'controle' ? (
           <main className="space-y-6">
-            {/* CARDS SUPERIORES (ECONOMIA E INVESTIMENTOS) - RESTAURADOS */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-emerald-50 dark:bg-emerald-950 p-4 rounded-3xl shadow-sm">
-                <div className="flex items-center text-stone-500 dark:text-stone-400 mb-1">
-                  <div className="bg-primary/10 text-primary p-1 rounded-lg mr-2">
-                    <PiggyBank size={16} />
-                  </div>
-                  <span className="text-xs font-medium">Economia</span>
-                </div>
-                <p className="text-sm text-stone-700 dark:text-stone-200 leading-tight mb-2">
-                 <b> Poupei com a Odete </b> 
-                </p>
-                <p className="text-primary font-bold text-lg">
-                  R$ {MOCK_WALLET_DATA.savingsHelp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div className="bg-stone-100 dark:bg-stone-900 p-4 rounded-3xl shadow-sm">
-                <div className="flex items-center text-stone-500 dark:text-stone-400 mb-1">
-                  <div className="text-primary mr-2">
-                    <TrendingUp size={16} />
-                  </div>
-                  <span className="text-xs font-medium">Investimentos</span>
-                </div>
-                <p className="text-sm text-stone-700 dark:text-stone-200 leading-tight mb-2">
-                 <b> Ganhei com a Odete </b> 
-                </p>
-                <p className="text-primary font-bold text-lg">
-                  R$ {MOCK_WALLET_DATA.investmentHelp.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-
-            {/* CARD MEUS GASTOS - RESTAURADO */}
-            <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-stone-800 dark:text-white">
-                  Meus Gastos
-                </h2>
-                <button
-                  onClick={onShowDailySpendingHistory}
-                  className="bg-stone-800 dark:bg-stone-700 text-white text-xs font-semibold py-2 px-4 rounded-full flex items-center hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
-                >
-                  Ver todas
-                  <ArrowRight size={14} className="ml-1" />
-                </button>
-              </div>
-              <p className="text-stone-500 dark:text-stone-400 mb-6 text-sm">
-                Você ainda pode gastar R${MOCK_WALLET_DATA.dailyBudgetLeft.toFixed(2)} hoje.
-              </p>
-
-              <div className="flex justify-between text-center text-stone-400 dark:text-stone-500 text-xs font-bold">
-                {MOCK_WALLET_DATA.dailySpending.map((day, index) => (
-                  <div key={index} className="flex flex-col items-center space-y-2">
-                    <span>{day.day}</span>
-                    {day.status === 'success' && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                        <Check size={16} className="text-white" />
-                      </div>
-                    )}
-                    {day.status === 'failed' && (
-                      <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
-                        <X size={16} className="text-white" />
-                      </div>
-                    )}
-                    {day.status === 'today' && (
-                      <div className="flex flex-col items-center">
-                        <div className="w-10 h-10 rounded-full bg-emerald-300 flex items-center justify-center ring-2 ring-emerald-400 dark:ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-stone-900"></div>
-                        <span className="text-stone-800 dark:text-stone-200 text-[10px] font-semibold mt-1">
-                          Hoje
-                        </span>
-                      </div>
-                    )}
-                    {day.status === 'pending' && (
-                      <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
-                        <Clock size={16} className="text-stone-400 dark:text-stone-500" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            
             <ChallengeCard 
               data={MOCK_CHALLENGE_DATA}
               onViewAll={() => console.log('Ver todos desafios')}
               onEdit={() => console.log('Editar desafio')}
             />
 
-          
+            {/* 2. CHAMAR O COMPONENTE AQUI */}
+            <FinancialFreedomSection />
             
           </main>
         ) : (
           <main className="space-y-8 relative pb-20">
-            {/* Aba Conquistas (sem alterações) */}
             <section>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-stone-900 dark:text-white">Suas Medalhas</h2>
