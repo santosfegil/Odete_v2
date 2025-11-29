@@ -93,6 +93,54 @@ export interface Medal {
 
 }
 
+// src/types.ts
+
+// Interface para a tabela satélite
+export interface LoanDetail {
+  monthly_payment: number;
+  interest_rate: number;
+  amortization_system?: string;
+}
+
+// A DebtAccount agora compõe Account + LoanDetail
+export interface DebtAccount {
+  id: string;
+  name: string;
+  balance: number;
+  type: string;
+  // Dados do contrato (1:1)
+  loan_details: LoanDetail | null; 
+  // Estado calculado em tempo de execução
+  paid_this_month: boolean;
+}
+
+export interface FinancialFreedomData {
+  totalDebt: number;
+  monthsToPay: number;
+  freedomDate: string;
+  savedInterest: number;
+  debts: DebtAccount[];
+}
+
+// ... mantenha o restante do arquivo
+
+export interface DebtAccount {
+  id: string;
+  name: string;
+  balance: number;
+  type: string;
+  interest_rate: number;
+  paid_this_month: boolean; // Novo campo
+}
+
+export interface FinancialFreedomData {
+  totalDebt: number;
+  monthsToPay: number;
+  freedomDate: string;
+  savedInterest: number;
+  debts: DebtAccount[];
+}
+
 export interface Goal {
   id: string;
   name: string;

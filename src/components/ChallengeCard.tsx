@@ -67,7 +67,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
           {/* Média */}
           <div className="flex flex-col items-center justify-center p-2 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700">
             <div className="text-stone-400 mb-1"><TrendingDown size={14} /></div>
-            <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wide">Média</p>
+            <p className="text-[10px]  font-bold text-stone-400 tracking-wide">Média</p>
             <p className="text-sm font-bold text-stone-600 dark:text-stone-300 line-through decoration-red-400 decoration-2">
               <span className="text-xs mr-0.5">R$</span>{formatValue(data.averageSpent)}
             </p>
@@ -76,7 +76,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
           {/* Meta */}
           <div className="flex flex-col items-center justify-center p-2 rounded-2xl bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700">
             <div className="text-stone-400 mb-1"><Target size={14} /></div>
-            <p className="text-[10px] uppercase font-bold text-stone-400 tracking-wide">Meta</p>
+            <p className="text-[10px]  font-bold text-stone-400 tracking-wide">Meta</p>
             <p className="text-sm font-bold text-stone-900 dark:text-white">
               <span className="text-xs mr-0.5">R$</span>{formatValue(data.targetAmount)}
             </p>
@@ -85,7 +85,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
           {/* Economia */}
           <div className="flex flex-col items-center justify-center p-2 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800">
             <div className="text-emerald-500 mb-1"><PiggyBank size={14} /></div>
-            <p className="text-[10px] uppercase font-bold text-emerald-600/70 dark:text-emerald-400 tracking-wide">Economia</p>
+            <p className="text-[10px]  font-bold text-emerald-600/70 dark:text-emerald-400 tracking-wide">Economia</p>
             <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
               <span className="text-xs mr-0.5">+R$</span>{formatValue(data.savingTarget)}
             </p>
@@ -112,7 +112,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
             return (
               <div key={index} className="relative flex flex-col items-center group">
                 {isToday && (
-                  <span className="absolute -top-6 text-[9px] font-bold text-stone-900 dark:text-white uppercase tracking-wider animate-bounce">
+                  <span className="absolute -top-6 text-[9px] font-bold text-stone-900 dark:text-white  tracking-wider animate-bounce">
                     Hoje
                   </span>
                 )}

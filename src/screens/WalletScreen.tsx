@@ -3,6 +3,7 @@ import { User, Award, ArrowRight, Share2, LogOut, Link, Umbrella, Plus } from 'l
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
+
 // Componentes
 import MedalDetailModal from '../components/MedalDetailModal';
 import { EditGoalModal } from '../components/EditGoalModal';

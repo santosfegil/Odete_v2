@@ -401,7 +401,7 @@ export default function RetirementSimulator() {
 
           {/* CONFIGURAÇÕES AVANÇADAS */}
           <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-700">
-            <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-4">Premissas Econômicas</h4>
+            <h4 className="text-[10px] font-bold text-stone-400  tracking-wider mb-4">Premissas Econômicas</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-stone-600 block mb-1.5">Idade Atual</label>
