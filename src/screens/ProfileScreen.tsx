@@ -93,7 +93,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('email')}>
               <span className="text-stone-600 dark:text-stone-300 " >E-mail</span>
               <div className="flex items-center gap-2">
-                <span className="font-medium">fernando.gil@gympass.com</span>
+                <span className="font-medium">
+                {user?.user_metadata?.email || 'Usuário'}
+                </span>
                 <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
               </div>
             </div>
