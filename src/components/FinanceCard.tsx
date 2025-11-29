@@ -78,7 +78,7 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
         <div className="grid grid-cols-3 items-center mb-1 relative">
           
           <div className="justify-self-start flex flex-col">
-
+        
             {!isCurrentMonth && (
               <button 
                 onClick={handleBackToCurrent}

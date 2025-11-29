@@ -24,7 +24,9 @@ export default function FinancialFreedomSection() {
 
   return (
     <div className="bg-[#FFFDF5] dark:bg-stone-800 rounded-3xl shadow-sm border border-[#F2EFE5] dark:border-stone-700 overflow-hidden mt-6 relative">
-      
+      <div className="px-6 pt-6">
+        <h2 className="text-lg font-bold text-stone-900 dark:text-white">Empréstimos e financiamentos</h2>
+      </div>
 
       <button className="absolute top-6 right-6 p-2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors rounded-full hover:bg-stone-100/50 dark:hover:bg-stone-700/50">
         <MessageCircle size={20} />

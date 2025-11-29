@@ -94,7 +94,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
 
       {/* Progresso Semanal */}
       <div>
-        <p className="text-sm text-stone-600 dark:text-stone-400 mb-3 font-medium">Progresso Semanal</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400 mb-3 font-medium">Progresso semanal</p>
         <div className="flex justify-between items-center pt-4"> 
           {data.weekProgress.map((day, index) => {
             const isToday = day.status === 'today';

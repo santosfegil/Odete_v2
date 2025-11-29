@@ -81,7 +81,7 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
           <ArrowLeft size={24} />
         </button>
         <h1 className="text-xl font-bold text-stone-900 dark:text-white absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
-          Histórico de Investimentos
+          Histórico de investimentos
           </h1>
           <div className="w-8"></div>
       </header>
@@ -165,7 +165,7 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
             </div>
 
             {/* Legenda */}
-            <div className="mt-8 flex gap-6 justify-center text-[10px] text-stone-500 dark:text-stone-400 font-bold uppercase tracking-wide">
+            <div className="mt-8 flex gap-6 justify-center text-[10px] text-stone-500 dark:text-stone-400 font-bold  tracking-wide">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Meta batida
               </div>
