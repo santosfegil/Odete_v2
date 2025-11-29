@@ -10,9 +10,9 @@ interface AllMedalsScreenProps {
 
 // Mapa para traduzir as categorias do banco (inglês) para exibição (português)
 const CATEGORY_LABELS: Record<string, string> = {
-  saver: 'Medalhas de Poupador',
-  investor: 'Medalhas de Investidor',
-  goals: 'Medalhas de Metas'
+  saver: 'Medalhas de poupador',
+  investor: 'Medalhas de investidor',
+  goals: 'Medalhas de metas'
 };
 
 export default function AllMedalsScreen({ onBack }: AllMedalsScreenProps) {
@@ -34,7 +34,7 @@ export default function AllMedalsScreen({ onBack }: AllMedalsScreenProps) {
           <ArrowLeft size={28} />
         </button>
         <h1 className="text-xl font-bold text-stone-900 dark:text-stone-100 absolute left-1/2 -translate-x-1/2">
-          Minhas Medalhas
+          Minhas medalhas
         </h1>
         <div className="w-8"></div>
       </header>

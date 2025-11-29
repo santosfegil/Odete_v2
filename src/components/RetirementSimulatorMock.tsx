@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Settings, CalendarDays, CircleDollarSign, PiggyBank, 
+  MessageCircle, CalendarDays, CircleDollarSign, PiggyBank, 
   Save, ArrowUpCircle, CheckCircle2, AlertCircle, Loader2, Lock 
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -224,9 +224,10 @@ export default function RetirementSimulator() {
   return (
     <div className="bg-[#F2F7FF] dark:bg-stone-900 rounded-[2.5rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden transition-all">
       
+      <h2 className="text-lg font-bold text-stone-900 dark:text-white mb-1">Aposentadoria</h2>
       {/* Botão Configurações */}
       <div className="absolute top-6 right-6 text-stone-300">
-        <Settings size={20} />
+        <MessageCircle size={20} />
       </div>
 
       {/* --- ÁREA DE DESTAQUE (Dados Salvos/Display) --- */}
@@ -338,7 +339,7 @@ export default function RetirementSimulator() {
                 <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
                   <CircleDollarSign size={18} />
                 </div>
-                <span className="text-xs font-bold text-stone-500 dark:text-stone-400  tracking-wide">Renda Mensal</span>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400  tracking-wide">Renda mensal</span>
               </div>
 
               <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
@@ -372,7 +373,7 @@ export default function RetirementSimulator() {
                 <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
                   <PiggyBank size={18} />
                 </div>
-                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Aporte Necessário</span>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Aporte necessário</span>
               </div>
 
               <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
@@ -404,7 +405,7 @@ export default function RetirementSimulator() {
             <h4 className="text-[10px] font-bold text-stone-400  tracking-wider mb-4">Premissas Econômicas</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-stone-600 block mb-1.5">Idade Atual</label>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">Idade atual</label>
                 <div className="relative">
                   <input 
                     type="number" 
@@ -416,7 +417,7 @@ export default function RetirementSimulator() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-stone-600 block mb-1.5">Patrimônio Inicial</label>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">Patrimônio inicial</label>
                 <div className="relative">
                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">R$</span>
                    <input type="number" value={initialCapital} disabled className="w-full bg-stone-50 text-stone-400 rounded-xl p-2.5 pl-8 text-sm font-bold border border-stone-200 cursor-not-allowed" />

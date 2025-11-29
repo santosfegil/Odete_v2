@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Calendar, Settings, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DashboardData } from '../types';
 
@@ -73,11 +73,12 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
 
   return (
     <div className="rounded-3xl bg-emerald-100 dark:bg-emerald-900/40 p-6 text-stone-900 dark:text-stone-100 shadow-lg transition-all min-h-[440px] flex flex-col justify-between relative">
-      
-      {/* Cabeçalho com Grid para alinhamento perfeito */}
+                 {/* Cabeçalho com Grid para alinhamento perfeito */}
       <div>
         <div className="grid grid-cols-3 items-center mb-1 relative">
-          <div className="justify-self-start">
+          
+          <div className="justify-self-start flex flex-col">
+
             {!isCurrentMonth && (
               <button 
                 onClick={handleBackToCurrent}
@@ -98,16 +99,25 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
               <h2 className="text-lg font-semibold text-stone-800 dark:text-stone-200 leading-tight">
                 {capitalizedMonth}
               </h2>
-              <p className="text-sm text-stone-500 dark:text-stone-400">
-                {year}
-              </p>
             </div>
             <button onClick={handleNextMonth} className="p-2 text-stone-500 rounded-full dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="justify-self-end"></div>
+          <div className="justify-self-end flex items-center gap-1">
+            <button 
+              className="p-2 text-stone-500 rounded-full dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={onShowBudget}
+              className="p-2 text-stone-500 rounded-full dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         <p className="text-center text-xs text-stone-500 dark:text-stone-400 font-medium mb-4">
           1 - {lastDayOfMonth}
@@ -200,20 +210,13 @@ export const FinanceCard: React.FC<FinanceCardProps> = ({ onShowBudget }) => {
               <p className="text-[10px]  tracking-wider text-stone-500 dark:text-stone-400 font-bold mb-1">
                 Saídas
               </p>
-              <p className="text-base font-bold text-red-500 dark:text-red-400">
+              <p className="text-base font-bold text-yellow-600 dark:text-red-400">
                 {toMoney(totalOutflows)}
               </p>
             </div>
           </div>
         </>
       )}
-
-      <button
-        onClick={onShowBudget}
-        className="mt-6 w-full rounded-full bg-stone-900 py-4 text-center font-bold text-white transition-transform active:scale-[0.98] hover:bg-stone-800 dark:bg-stone-800 dark:hover:bg-stone-700 shadow-lg hover:shadow-xl"
-      >
-        Ver meu orçamento
-      </button>
     </div>
   );
 };

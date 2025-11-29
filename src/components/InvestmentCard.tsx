@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, PiggyBank, Wallet, Home, Settings } from 'lucide-react';
+import { DollarSign, PiggyBank, Wallet, Home, Settings, MessageCircle } from 'lucide-react';
 import { InvestmentData } from '../types';
 
 interface InvestmentCardProps {
@@ -20,14 +20,22 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ data, onEdit }) 
               <span className="align-top text-2xl font-semibold">,{data.totalEquity.toFixed(2).split('.')[1]}</span>
             </p>
           </div>
+
+          <div className="flex gap-1">
+            <button 
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-emerald-50"
+            >
+              <MessageCircle size={20} />
+            </button>
           
           <button 
             onClick={onEdit}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-emerald-50"
             aria-label="Editar patrimônio"
           >
-            <Settings className="h-6 w-6" />
+           <Settings size={20} />
           </button>
+        </div>
         </div>
 
         {/* Margem reduzida para mt-2 para aproximar a linha do valor */}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Circle, Check } from 'lucide-react';
+import { Circle, Check,MessageCircle } from 'lucide-react';
 import { useFinancialFreedom } from '../lib/useFinancialFreedom';
 
 export default function FinancialFreedomSection() {
@@ -23,8 +23,13 @@ export default function FinancialFreedomSection() {
   if (!data) return null; 
 
   return (
-    <div className="bg-[#FFFDF5] dark:bg-stone-800 rounded-3xl shadow-sm border border-[#F2EFE5] dark:border-stone-700 overflow-hidden mt-6">
+    <div className="bg-[#FFFDF5] dark:bg-stone-800 rounded-3xl shadow-sm border border-[#F2EFE5] dark:border-stone-700 overflow-hidden mt-6 relative">
       
+
+      <button className="absolute top-6 right-6 p-2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors rounded-full hover:bg-stone-100/50 dark:hover:bg-stone-700/50">
+        <MessageCircle size={20} />
+      </button>
+
       {/* Header */}
       <div className="pt-8 pb-6 px-6 text-center">
         <p className="text-stone-500 dark:text-stone-400 text-sm font-medium mb-1 tracking-wide">
@@ -47,7 +52,7 @@ export default function FinancialFreedomSection() {
         </div>
         <div className="flex-1 bg-white dark:bg-stone-700 p-4 rounded-2xl shadow-sm border border-orange-50 dark:border-stone-600 flex flex-col items-center justify-center">
           <span className="text-stone-500 dark:text-stone-400 text-[10px] font-bold tracking-wider mb-1 text-center">
-            Total Dívida
+            Dívida total
           </span>
           <span className="text-xl font-black text-yellow-600 dark:text-yellow-400">
             R$ {data.totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -108,7 +113,7 @@ export default function FinancialFreedomSection() {
       {/* Footer */}
       <div className="mx-4 mb-4 bg-[#FBF2D5] dark:bg-yellow-900/30 p-5 rounded-2xl border border-[#F5EBC0] dark:border-yellow-900/50">
         <p className="text-[#5C4D26] dark:text-yellow-200 text-xs leading-relaxed">
-          {strategy === 'relief' ? 'A estratégia de Alívio Rápido prioriza quitar as dívidas com menor saldo total primeiro.' : 'A estratégia de Economia Máxima prioriza as dívidas com juros mais altos.'}
+          {strategy === 'relief' ? 'A estratégia de Alívio Rápido prioriza quitar as dívidas com menor saldo total primeiro.' : 'A estratégia de economia máxima prioriza as dívidas com juros mais altos.'}
         </p>
       </div>
     </div>

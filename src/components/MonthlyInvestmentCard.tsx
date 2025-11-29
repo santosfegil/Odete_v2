@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle, MessageCircle, Settings } from 'lucide-react';
 
 interface MonthlyInvestmentCardProps {
   currentInvested: number;
@@ -21,15 +21,18 @@ export const MonthlyInvestmentCard: React.FC<MonthlyInvestmentCardProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold text-stone-900 dark:text-white">
-          Investimento Mensal
+          Investimento mensal
         </h2>
-        <button
-          onClick={onShowHistory}
-          className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
-        >
-          Ver todas
-          <ArrowRight size={12} className="ml-1" />
-        </button>
+        
+        {/* 1 e 2: Botões Chat e Engrenagem no topo */}
+        <div className="flex gap-1">
+          <button className="p-2 rounded-full hover:bg-emerald-200/50 dark:hover:bg-emerald-800/50 text-stone-600 dark:text-stone-300 transition-colors">
+            <MessageCircle size={20} />
+          </button>
+          <button className="p-2 rounded-full hover:bg-emerald-200/50 dark:hover:bg-emerald-800/50 text-stone-600 dark:text-stone-300 transition-colors">
+            <Settings size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Valor Principal Gigante */}
@@ -46,7 +49,7 @@ export const MonthlyInvestmentCard: React.FC<MonthlyInvestmentCardProps> = ({
         
         {/* Texto Descritivo */}
         <p className="text-stone-600 dark:text-stone-400 font-medium text-xs mt-1">
-          investidos dos R$ {monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} desejados
+          investidos dos R$ {monthlyGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} planejados
         </p>
       </div>
 
@@ -73,6 +76,17 @@ export const MonthlyInvestmentCard: React.FC<MonthlyInvestmentCardProps> = ({
           className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out shadow-sm"
           style={{ width: `${progressPercent}%` }}
         ></div>
+      </div>
+
+      {/* 3: Botão Ver todas reposicionado no canto inferior direito */}
+      <div className="flex justify-end mt-4">
+        <button
+          onClick={onShowHistory}
+          className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
+        >
+          Ver tudo
+          <ArrowRight size={12} className="ml-1" />
+        </button>
       </div>
     </div>
   );

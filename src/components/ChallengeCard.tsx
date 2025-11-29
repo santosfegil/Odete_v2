@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, TrendingDown, Target, PiggyBank } from 'lucide-react';
+import { Settings, TrendingDown, Target, PiggyBank,MessageCircle } from 'lucide-react';
 import { WeeklyChallenge } from '../types';
 
 interface ChallengeCardProps {
@@ -26,8 +26,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mb-1">Desafio da Semana</p>
-          <h3 className="text-lg font-bold text-stone-900 dark:text-white leading-tight max-w-[200px]">
+               <h3 className="text-lg font-bold text-stone-900 dark:text-white leading-tight max-w-[200px]">
             {data.title}
           </h3>
         </div>
@@ -36,7 +35,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
           onClick={onEdit}
           className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:text-stone-500 dark:hover:text-stone-300 dark:hover:bg-stone-800 rounded-full transition-colors"
         >
-          <Settings size={20} />
+          <MessageCircle size={20} />
         </button>
       </div>
 
@@ -95,7 +94,7 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
 
       {/* Progresso Semanal */}
       <div>
-        <p className="text-sm text-stone-600 dark:text-stone-400 mb-3 font-medium">Progresso Diário</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400 mb-3 font-medium">Progresso Semanal</p>
         <div className="flex justify-between items-center pt-4"> 
           {data.weekProgress.map((day, index) => {
             const isToday = day.status === 'today';

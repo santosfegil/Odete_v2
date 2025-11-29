@@ -72,29 +72,19 @@ export default function AllGoalsScreen({ onBack, onCreateGoal }: AllGoalsScreenP
             <button
               key={goal.id}
               onClick={() => setSelectedGoal(goal)} // Abre o modal ao clicar
-              className="w-full text-left p-5 bg-white dark:bg-stone-800 rounded-3xl shadow-sm border border-stone-100 dark:border-stone-700 relative overflow-hidden transition-transform active:scale-[0.98]"
-            >
+              className="w-full text-left p-5 bg-[#F2F7FF] dark:bg-stone-800 rounded-3xl shadow-sm border border-stone-100 dark:border-stone-700 relative overflow-hidden transition-transform active:scale-[0.98]"
+                 >
               {goal.is_automated && (
-                <div className="absolute top-4 right-4 text-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                  <Link size={10} />
+                <div className="absolute top-5 right-5 text-emerald-600 bg-white/50 dark:bg-emerald-900/30 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                   <Link size={10} />
                   AUTO
                 </div>
               )}
-
-              <div className="flex items-center gap-4 mb-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                  goal.progress >= 100 
-                    ? 'bg-emerald-500 text-white' 
-                    : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600'
-                }`}>
-                  {goal.progress >= 100 ? <Check size={24} /> : <Umbrella size={24} />}
-                </div>
-                <div>
-                  <h2 className="font-bold text-stone-900 dark:text-white text-lg leading-tight">{goal.title}</h2>
-                  {goal.is_automated && (
-                    <p className="text-xs text-stone-400 mt-1">Vinculado a: {goal.linked_account_name}</p>
-                  )}
-                </div>
+<div className="mb-4">
+                <h2 className="font-bold text-stone-900 dark:text-white text-lg leading-tight pr-12">{goal.title}</h2>
+                {goal.is_automated && (
+                  <p className="text-xs text-stone-400 mt-1">Vinculado a: {goal.linked_account_name}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -102,32 +92,33 @@ export default function AllGoalsScreen({ onBack, onCreateGoal }: AllGoalsScreenP
                   <span className="text-stone-500 dark:text-stone-400">
                     {goal.progress.toFixed(0)}% concluído
                   </span>
-                  <span className="text-stone-900 dark:text-stone-200">
-                    R$ {goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-stone-400">/ {goal.target_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </span>
+                  <span className="text-stone-500 dark:text-stone-400">
+  R$ {goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-stone-900 dark:text-white font-bold">/ {goal.target_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+</span>
                 </div>
                 
-                <div className="h-3 w-full bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden">
+                <div className="h-3 w-full bg-white dark:bg-stone-700 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-emerald-500 rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${Math.min(goal.progress, 100)}%` }}
                   />
                 </div>
               </div>
+            
             </button>
           ))
         )}
       </main>
 
-      <div className="absolute bottom-8 right-6 flex flex-col items-center gap-2 pointer-events-none">
-        <span className="text-sm font-medium text-stone-500 dark:text-stone-400 shadow-sm bg-white/80 dark:bg-black/50 px-2 py-1 rounded-lg backdrop-blur-sm">
+      <div className="absolute bottom-8 right-6 flex flex-col items-center gap-1 pointer-events-none">
+        <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 shadow-sm bg-white/80 dark:bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm">
           Nova Meta
         </span>
         <button
           onClick={onCreateGoal}
-          className="pointer-events-auto w-16 h-16 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-full flex items-center justify-center shadow-xl hover:scale-105 transition-transform"
+          className="pointer-events-auto w-12 h-12 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-full flex items-center justify-center shadow-xl hover:scale-105 transition-transform"
         >
-          <Plus size={32} />
+          <Plus size={24} />
         </button>
       </div>
 

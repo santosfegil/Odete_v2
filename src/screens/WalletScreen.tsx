@@ -133,7 +133,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
             {/* Seção Medalhas */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Suas Medalhas</h2>
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Minhas medalhas</h2>
                 <button onClick={onShowAllMedals} className="flex items-center gap-1 text-sm font-semibold bg-stone-800 dark:bg-stone-700 text-white py-2 px-4 rounded-full">Ver todas <ArrowRight size={14} /></button>
               </div>
               <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
@@ -150,27 +150,44 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
             {/* Seção Metas */}
             <section>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Minhas Metas</h2>
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white">Minhas metas</h2>
                 <button onClick={onShowAllGoals} className="flex items-center gap-1 text-sm font-semibold bg-stone-800 text-white py-2 px-4 rounded-full">Ver todas <ArrowRight size={14} /></button>
               </div>
               <div className="space-y-3">
-                {goals.slice(0, 2).map((goal) => (
-                  <button key={goal.id} onClick={() => setSelectedGoal(goal)} className="w-full text-left bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98]">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full text-emerald-600"><Umbrella size={24} /></div>
-                      <div className="flex-1">
-                        <div className="flex justify-between"><p className="font-bold text-sm">{goal.title}</p>{goal.is_automated && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 rounded font-bold flex items-center gap-0.5"><Link size={8}/> AUTO</span>}</div>
-                        <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden"><div className="bg-emerald-400 h-2 rounded-full" style={{ width: `${Math.min(goal.progress, 100)}%` }}></div></div>
-                        <p className="text-xs text-stone-500 mt-1 text-right">R${goal.current_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})} / R${goal.target_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})}</p>
+              {goals.slice(0, 2).map((goal) => (
+                  <button key={goal.id} onClick={() => setSelectedGoal(goal)} className="w-full text-left bg-[#F2F7FF] dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98]">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-start">
+                        <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
+                        {goal.is_automated && <span className="text-[9px] bg-white/50 dark:bg-black/20 text-emerald-600 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"><Link size={8}/> AUTO</span>}
                       </div>
+                      
+                      <div className="w-full bg-white dark:bg-stone-700 rounded-full h-2 overflow-hidden">
+                        <div className="bg-emerald-400 h-2 rounded-full" style={{ width: `${Math.min(goal.progress, 100)}%` }}></div>
+                      </div>
+                      
+                      <p className="text-xs text-right mt-0.5">
+                        <span className="text-stone-500 dark:text-stone-400">
+                          R${goal.current_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})} / <span className="text-stone-900 dark:text-white font-bold">R${goal.target_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})}</span>
+                        </span>
+                      </p>
                     </div>
                   </button>
                 ))}
               </div>
             </section>
             
-            {onCreateGoal && <div className="absolute bottom-0 right-0 z-50"><button onClick={onCreateGoal} className="w-16 h-16 bg-stone-800 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"><Plus size={32} /></button></div>}
-          </main>
+            {onCreateGoal && ( 
+            <div className="absolute bottom-4 right-4 z-50 flex flex-col items-center">
+            <span className="text-[10px] font-bold text-stone-500 mb-1 bg-white/80 dark:bg-stone-800/80 px-2 py-0.5 rounded shadow-sm backdrop-blur-sm">
+              Nova Meta
+            </span>
+            <button onClick={onCreateGoal} className="w-12 h-12 bg-stone-900 dark:bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
+              <Plus size={24} />
+            </button>
+          </div>
+          )}
+             </main>
         )}
       </div>
       {selectedMedal && <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
