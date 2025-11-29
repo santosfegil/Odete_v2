@@ -2,19 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Header } from '../components/HeaderHomeScreen';
 import { FinanceCard } from '../components/FinanceCard';
 import { InvestmentCard } from '../components/InvestmentCard';
-import { MonthlyInvestmentCard } from '../components/MonthlyInvestmentCard'; // Importando o novo componente
+import { MonthlyInvestmentCard } from '../components/MonthlyInvestmentCard';
 import { EditPatrimonyModal } from '../components/EditPatrimonyModal';
 import { InvestmentData } from '../types';
 import { supabase } from '../lib/supabase';
-import SpendingHistoryScreen from './SpendingHistoryScreen'; // Importando para navegação
-import { RetirementSimulatorMock } from '../components/RetirementSimulatorMock';
+import SpendingHistoryScreen from './SpendingHistoryScreen'; 
+// AQUI ESTAVA O ERRO: Importamos o componente real agora, não o Mock
+import RetirementSimulator from '../components/RetirementSimulatorMock';
 
 interface HomeScreenProps {
   onShowProfile: () => void;
   onShowBudget: () => void;
 }
-
-
 
 export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<'gastos' | 'investimentos'>('gastos');
@@ -109,30 +108,27 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
       <main className="flex-grow px-4 pb-4 animate-in fade-in duration-500">
         {activeTab === 'gastos' ? (
           <>
-          
-          <FinanceCard onShowBudget={onShowBudget} />
-    {/* Aplica uma margem superior (marginTop) ao InvestmentCard */}
-    <div style={{ marginTop: '20px' }}> 
-      <InvestmentCard
-        data={investmentData}
-        onEdit={() => setShowEditModal(true)}
-      />
-    </div>
-  </>
+            <FinanceCard onShowBudget={onShowBudget} />
+            <div style={{ marginTop: '20px' }}> 
+              <InvestmentCard
+                data={investmentData}
+                onEdit={() => setShowEditModal(true)}
+              />
+            </div>
+          </>
         ) : (
           <div className="space-y-6">
             
-          
-            
-
-            {/* 2. Card de Investimento Mensal (Verde Claro) - Novo Componente */}
+            {/* Card de Investimento Mensal */}
             <MonthlyInvestmentCard 
               currentInvested={monthlyInvestmentData.current}
               monthlyGoal={monthlyInvestmentData.goal}
               monthName={capitalizedMonth}
               onShowHistory={() => setShowInvestmentHistory(true)}
             />
-<RetirementSimulatorMock />
+
+            {/* Simulador Real Conectado ao Banco */}
+            <RetirementSimulator />
 
           </div>
         )}

@@ -1,58 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, PiggyBank, TrendingUp, Check, X, Clock, ArrowRight, Award, Rocket, CheckCircle, Umbrella, Plus, Share2, LogOut, Link } from 'lucide-react';
-import { WalletData } from '../types';
-import MedalDetailModal from '../components/MedalDetailModal';
-import { EditGoalModal } from '../components/EditGoalModal';
+import { User, Award, ArrowRight, Share2, LogOut, Link, Umbrella, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+
+// Componentes
+import MedalDetailModal from '../components/MedalDetailModal';
+import { EditGoalModal } from '../components/EditGoalModal';
 import { ChallengeCard } from '../components/ChallengeCard';
-// 1. IMPORTAR O NOVO COMPONENTE
 import FinancialFreedomSection from '../components/FinancialFreedomSection';
 
-const MOCK_WALLET_DATA: WalletData = {
-  savingsHelp: 542.30,
-  investmentHelp: 1289.00,
-  dailyBudgetLeft: 30.00,
-  dailySpending: [
-    { day: 'S', status: 'success' },
-    { day: 'T', status: 'failed' },
-    { day: 'Q', status: 'failed' },
-    { day: 'Q', status: 'success' },
-    { day: 'S', status: 'success' },
-    { day: 'S', status: 'today' },
-    { day: 'D', status: 'pending' },
-  ],
-  monthlyInvestmentGoal: 500.00,
-  monthlyInvestmentCurrent: 465.00,
-  monthlyInvestmentProgress: 93,
-  currentMonth: 'Janeiro',
-};
+// Hooks & Libs
+import { useAchievements } from '../lib/useAchievements';
+import { useWeeklyChallenge } from '../lib/useWeeklyChallenge'; // <--- Hook do Desafio
+import { getIconComponent } from '../lib/iconMap';
 
-const MOCK_CHALLENGE_DATA = {
-  id: '1',
-  category: 'delivery',
-  title: 'Desafio de Gastos: Delivery',
-  currentAmount: 27.50,
-  targetAmount: 50.00,
-  averageSpent: 85,
-  savingTarget: 35,
-  weekProgress: [
-    { day: 'S', status: 'success' },
-    { day: 'T', status: 'success' },
-    { day: 'Q', status: 'today' },
-    { day: 'Q', status: 'pending' },
-    { day: 'S', status: 'pending' },
-    { day: 'S', status: 'pending' },
-    { day: 'D', status: 'pending' },
-  ] as any 
-};
-
-const MOCK_MEDALS = [
-  { id: '1', icon: 'award', name: 'Mestre da Poupança', description: 'Parabéns! Você demonstrou disciplina exemplar ao manter uma poupança consistente.' },
-  { id: '2', icon: 'rocket', name: 'Investidor Pioneiro', description: 'Parabéns! Você realizou seu primeiro investimento.' },
-  { id: '3', icon: 'check-circle', name: 'Meta Concluída', description: 'Parabéns! Você alcançou sua primeira meta financeira.' },
-];
-
+// Interfaces locais...
 interface RealGoal {
   id: string;
   title: string;
@@ -69,22 +31,6 @@ interface InvestmentSummary {
   monthly_goal: number;
 }
 
-const getIconComponent = (iconName: string, className?: string) => {
-  const iconProps = { className: className || '', size: 24 };
-  switch (iconName) {
-    case 'award':
-      return <Award {...iconProps} fill="currentColor" />;
-    case 'rocket':
-      return <Rocket {...iconProps} fill="currentColor" />;
-    case 'check-circle':
-      return <CheckCircle {...iconProps} fill="currentColor" />;
-    case 'umbrella':
-      return <Umbrella {...iconProps} />;
-    default:
-      return <Award {...iconProps} />;
-  }
-};
-
 interface WalletScreenProps {
   activeTab: 'controle' | 'conquistas';
   onTabChange: (tab: 'controle' | 'conquistas') => void;
@@ -97,128 +43,66 @@ interface WalletScreenProps {
   onCreateGoal?: () => void;
 }
 
-export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, onShowAllMedals, onShowSpendingHistory, onShowInvestmentHistory, onShowDailySpendingHistory, onShowProfile, onCreateGoal }: WalletScreenProps) {
-  const [selectedMedal, setSelectedMedal] = useState<{ id: string; icon: string; name: string; description: string; earned?: boolean } | null>(null);
+export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, onShowAllMedals, onShowProfile, onCreateGoal }: WalletScreenProps) {
+  const [selectedMedal, setSelectedMedal] = useState<any>(null);
   const [selectedGoal, setSelectedGoal] = useState<RealGoal | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [goals, setGoals] = useState<RealGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
-  
   const [investmentSummary, setInvestmentSummary] = useState<InvestmentSummary | null>(null);
+
+  // Hooks
+  const { earnedMedals, loading: loadingMedals } = useAchievements();
+  const { challenge, loading: loadingChallenge } = useWeeklyChallenge(); // <--- Hook conectado
 
   const menuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowMenu(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Fetch functions...
   const fetchGoals = async () => {
     if (goals.length === 0) setLoadingGoals(true);
     try {
       const { data, error } = await supabase.rpc('get_goals_with_progress');
       if (error) throw error;
       setGoals(data || []);
-    } catch (err) {
-      console.error('Erro ao buscar metas:', err);
-    } finally {
-      setLoadingGoals(false);
-    }
+    } catch (err) { console.error(err); } 
+    finally { setLoadingGoals(false); }
   };
 
   const fetchInvestmentSummary = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_investment_summary', { year_input: new Date().getFullYear() });
-      if (!error && data) {
-        setInvestmentSummary(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    const { data } = await supabase.rpc('get_investment_summary', { year_input: new Date().getFullYear() });
+    if (data) setInvestmentSummary(data);
   };
 
   useEffect(() => {
-    if (activeTab === 'conquistas') {
-      fetchGoals();
-    } else if (activeTab === 'controle') {
-      fetchInvestmentSummary();
-    }
+    if (activeTab === 'conquistas') fetchGoals();
+    else if (activeTab === 'controle') fetchInvestmentSummary();
   }, [activeTab]);
 
-  const handleProfileClick = () => {
-    onShowProfile();
-    setShowMenu(false);
-  };
-
-  const handleLogout = async () => {
-    setShowMenu(false);
-    await signOut();
-  };
-
-  const now = new Date();
-  const currentMonthName = now.toLocaleString('pt-BR', { month: 'long' });
-  const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
-
-  const currentInvested = investmentSummary?.current_month_total || 0;
-  const monthlyGoal = investmentSummary?.monthly_goal || 500;
-  const progressPercent = Math.min((currentInvested / monthlyGoal) * 100, 100);
+  const handleLogout = async () => { setShowMenu(false); await signOut(); };
 
   return (
     <div className="flex-1 overflow-y-auto pb-32">
       <div className="p-6 max-w-md mx-auto">
         <header className="flex justify-between items-center mb-6">
           <div className="bg-stone-200 dark:bg-stone-800 p-1 rounded-full flex-grow flex items-center">
-            <button
-              onClick={() => onTabChange('controle')}
-              className={`py-2 px-6 rounded-full text-sm font-semibold w-1/2 transition-all ${
-                activeTab === 'controle'
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm'
-                  : 'text-stone-500 dark:text-stone-400'
-              }`}
-            >
-              Controle
-            </button>
-            <button
-              onClick={() => onTabChange('conquistas')}
-              className={`py-2 px-6 rounded-full text-sm font-medium w-1/2 transition-all ${
-                activeTab === 'conquistas'
-                  ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm'
-                  : 'text-stone-500 dark:text-stone-400'
-              }`}
-            >
-              Conquistas
-            </button>
+            <button onClick={() => onTabChange('controle')} className={`py-2 px-6 rounded-full text-sm font-semibold w-1/2 transition-all ${activeTab === 'controle' ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm' : 'text-stone-500 dark:text-stone-400'}`}>Controle</button>
+            <button onClick={() => onTabChange('conquistas')} className={`py-2 px-6 rounded-full text-sm font-medium w-1/2 transition-all ${activeTab === 'conquistas' ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-sm' : 'text-stone-500 dark:text-stone-400'}`}>Conquistas</button>
           </div>
           <div className="flex items-center space-x-4 text-stone-700 dark:text-stone-300 relative ml-4" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-full hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
-            >
-              <User className="w-6 h-6" />
-            </button>
-
+            <button onClick={() => setShowMenu(!showMenu)} className="p-2 rounded-full hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"><User className="w-6 h-6" /></button>
             {showMenu && (
               <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-lg border border-stone-200 dark:border-stone-800 overflow-hidden z-50">
-                <button
-                  onClick={handleProfileClick}
-                  className="w-full px-4 py-3 text-left text-sm text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center gap-2"
-                >
-                  <User className="w-4 h-4" />
-                  Meu perfil
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-2"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sair
-                </button>
+                <button onClick={onShowProfile} className="w-full px-4 py-3 text-left text-sm hover:bg-stone-100 flex items-center gap-2"><User className="w-4 h-4" /> Meu perfil</button>
+                <button onClick={handleLogout} className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><LogOut className="w-4 h-4" /> Sair</button>
               </div>
             )}
           </div>
@@ -226,138 +110,70 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
 
         {activeTab === 'controle' ? (
           <main className="space-y-6">
-            
-            <ChallengeCard 
-              data={MOCK_CHALLENGE_DATA}
-              onViewAll={() => console.log('Ver todos desafios')}
-              onEdit={() => console.log('Editar desafio')}
-            />
+            {/* CARD DE DESAFIO (Real) */}
+            {loadingChallenge ? (
+              <div className="h-64 bg-stone-100 dark:bg-stone-800 rounded-3xl animate-pulse flex items-center justify-center text-stone-400 text-sm">Carregando desafio...</div>
+            ) : challenge ? (
+              <ChallengeCard 
+                data={challenge}
+                onEdit={() => console.log('Configurações do desafio')}
+              />
+            ) : (
+              <div className="p-6 bg-white dark:bg-stone-900 rounded-3xl text-center border border-stone-100 border-dashed">
+                <p className="text-stone-500 text-sm">Nenhum desafio ativo.</p>
+                <button className="mt-2 text-emerald-600 font-bold text-sm">Criar desafio</button>
+              </div>
+            )}
 
-            {/* 2. CHAMAR O COMPONENTE AQUI */}
             <FinancialFreedomSection />
-            
           </main>
         ) : (
           <main className="space-y-8 relative pb-20">
+            {/* Seção Medalhas */}
             <section>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-stone-900 dark:text-white">Suas Medalhas</h2>
-                <button
-                  onClick={onShowAllMedals}
-                  className="flex items-center gap-1 text-sm font-semibold bg-stone-800 dark:bg-stone-700 text-white py-2 px-4 rounded-full hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
-                >
-                  Ver todas
-                  <ArrowRight size={14} />
-                </button>
+                <button onClick={onShowAllMedals} className="flex items-center gap-1 text-sm font-semibold bg-stone-800 dark:bg-stone-700 text-white py-2 px-4 rounded-full">Ver todas <ArrowRight size={14} /></button>
               </div>
               <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
-                {MOCK_MEDALS.map((medal) => (
-                  <button
-                    key={medal.id}
-                    onClick={() => setSelectedMedal({ ...medal, earned: true })}
-                    className="w-28 flex-shrink-0 bg-white dark:bg-stone-800 rounded-3xl p-4 flex flex-col items-center justify-center aspect-square shadow-sm relative"
-                  >
-                    <button className="absolute top-3 right-3 text-stone-500 dark:text-stone-400">
-                      <Share2 size={14} />
-                    </button>
-                    <div className="text-yellow-400 mt-2">
-                      {getIconComponent(medal.icon, 'w-8 h-8')}
-                    </div>
-                    <p className="text-xs mt-2 font-medium text-stone-700 dark:text-stone-300 leading-tight">
-                      {medal.name}
-                    </p>
+                {loadingMedals ? <div className="pl-2 text-stone-500 text-sm py-4">Carregando...</div> : earnedMedals.length === 0 ? <div className="p-4 bg-white dark:bg-stone-800 rounded-2xl w-full text-center"><Award size={32} className="mx-auto mb-2 text-stone-300"/><p className="text-stone-500 text-sm">Nenhuma medalha ainda.</p></div> : earnedMedals.map((medal) => (
+                  <button key={medal.id} onClick={() => setSelectedMedal(medal)} className="w-28 flex-shrink-0 bg-white dark:bg-stone-800 rounded-3xl p-4 flex flex-col items-center justify-center aspect-square shadow-sm relative active:scale-95 transition-transform">
+                    <button className="absolute top-3 right-3 text-stone-500 dark:text-stone-400"><Share2 size={14} /></button>
+                    <div className="text-yellow-400 mt-2">{getIconComponent(medal.icon_slug, 'w-8 h-8')}</div>
+                    <p className="text-xs mt-2 font-medium text-stone-700 dark:text-stone-300 leading-tight text-center line-clamp-2">{medal.title}</p>
                   </button>
                 ))}
               </div>
             </section>
 
+            {/* Seção Metas */}
             <section>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-stone-900 dark:text-white">Minhas Metas</h2>
-                <button
-                  onClick={onShowAllGoals}
-                  className="flex items-center gap-1 text-sm font-semibold bg-stone-800 dark:bg-stone-700 text-white py-2 px-4 rounded-full hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors"
-                >
-                  Ver todas
-                  <ArrowRight size={14} />
-                </button>
+                <button onClick={onShowAllGoals} className="flex items-center gap-1 text-sm font-semibold bg-stone-800 text-white py-2 px-4 rounded-full">Ver todas <ArrowRight size={14} /></button>
               </div>
               <div className="space-y-3">
-                {loadingGoals ? (
-                  <div className="text-center py-8 text-stone-500">Carregando...</div>
-                ) : goals.length === 0 ? (
-                  <div className="p-4 bg-white dark:bg-stone-800 rounded-2xl text-center text-stone-500 text-sm">
-                    Nenhuma meta criada ainda.
-                  </div>
-                ) : (
-                  goals.slice(0, 2).map((goal) => (
-                    <button 
-                      key={goal.id} 
-                      onClick={() => setSelectedGoal(goal)}
-                      className="w-full text-left bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98] hover:border-emerald-500/30"
-                    >
-                      <div className="flex items-center">
-                        <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full mr-4 text-emerald-600 dark:text-emerald-400">
-                          <Umbrella size={24} />
-                        </div>
-                        <div className="w-full">
-                          <div className="flex justify-between items-start">
-                            <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
-                            {goal.is_automated && (
-                              <span className="text-[9px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
-                                <Link size={8} />
-                                AUTO
-                              </span>
-                            )}
-                          </div>
-                          <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden">
-                            <div
-                              className="bg-emerald-400 h-2 rounded-full transition-all duration-1000 ease-out"
-                              style={{ width: `${Math.min(goal.progress, 100)}%` }}
-                            ></div>
-                          </div>
-                          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 text-right font-medium">
-                            R${goal.current_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}/
-                            R${goal.target_amount.toLocaleString('pt-BR', {maximumFractionDigits: 0})}
-                          </p>
-                        </div>
+                {goals.slice(0, 2).map((goal) => (
+                  <button key={goal.id} onClick={() => setSelectedGoal(goal)} className="w-full text-left bg-white dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98]">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-emerald-100 dark:bg-emerald-900/30 p-3 rounded-full text-emerald-600"><Umbrella size={24} /></div>
+                      <div className="flex-1">
+                        <div className="flex justify-between"><p className="font-bold text-sm">{goal.title}</p>{goal.is_automated && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 rounded font-bold flex items-center gap-0.5"><Link size={8}/> AUTO</span>}</div>
+                        <div className="w-full bg-stone-100 dark:bg-stone-700 rounded-full h-2 mt-2 overflow-hidden"><div className="bg-emerald-400 h-2 rounded-full" style={{ width: `${Math.min(goal.progress, 100)}%` }}></div></div>
+                        <p className="text-xs text-stone-500 mt-1 text-right">R${goal.current_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})} / R${goal.target_amount.toLocaleString('pt-BR',{maximumFractionDigits:0})}</p>
                       </div>
-                    </button>
-                  ))
-                )}
+                    </div>
+                  </button>
+                ))}
               </div>
             </section>
-
-            {onCreateGoal && (
-              <div className="absolute bottom-0 right-0 flex flex-col items-center gap-2 z-50"> 
-                <span className="text-sm font-medium text-stone-700 dark:text-stone-300 bg-white/80 dark:bg-black/50 px-2 py-1 rounded-lg backdrop-blur-sm">
-                  Nova Meta
-                </span>
-                <button
-                  onClick={onCreateGoal}
-                  className="w-16 h-16 bg-stone-800 dark:bg-stone-700 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-stone-700 dark:hover:bg-stone-600 transition-colors hover:scale-105 transform duration-200"
-                >
-                  <Plus size={32} strokeWidth={1.5} />
-                </button>
-              </div>
-            )}
+            
+            {onCreateGoal && <div className="absolute bottom-0 right-0 z-50"><button onClick={onCreateGoal} className="w-16 h-16 bg-stone-800 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"><Plus size={32} /></button></div>}
           </main>
         )}
       </div>
-
-      {selectedMedal && (
-        <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />
-      )}
-
-      {selectedGoal && (
-        <EditGoalModal 
-          goal={selectedGoal} 
-          onClose={() => setSelectedGoal(null)} 
-          onSuccess={() => {
-            fetchGoals(); 
-          }}
-        />
-      )}
+      {selectedMedal && <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
+      {selectedGoal && <EditGoalModal goal={selectedGoal} onClose={() => setSelectedGoal(null)} onSuccess={fetchGoals} />}
     </div>
   );
 }

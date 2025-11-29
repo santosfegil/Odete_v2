@@ -1,358 +1,440 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Settings, 
-  CalendarDays, 
-  CircleDollarSign, 
-  PiggyBank, 
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Save,
-  ArrowUpCircle
+  Settings, CalendarDays, CircleDollarSign, PiggyBank, 
+  Save, ArrowUpCircle, CheckCircle2, AlertCircle, Loader2, Lock 
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
-// Alterado o nome para RetirementSimulatorMock para coincidir com seu arquivo
-export const RetirementSimulatorMock = () => {
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+export default function RetirementSimulator() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // Controle de visibilidade do simulador (Vem fechado por padrão)
+  const [showSimulator, setShowSimulator] = useState(false);
 
-  // --- MOCKS E DADOS DO USUÁRIO ---
-  // Valor que o usuário de fato investiu este mês (Mockado conforme pedido)
-  // Mudei para 1200 para testar lógica de "acima" vs "abaixo" vs "igual" dependendo da simulação
-  const CURRENT_MONTH_INVESTED = 1500; 
-
-  // --- Parâmetros Globais (Editáveis na Engrenagem) ---
-  const [currentAge, setCurrentAge] = useState(30);
-  const [selic, setSelic] = useState(10.0); // % ao ano
-  const [ipca, setIpca] = useState(6.0);    // % ao ano
-  const [initialCapital, setInitialCapital] = useState(100000); // Mock de 100k inicial
-
-  // --- Estados da Simulação (Sliders) ---
-  const [simAge, setSimAge] = useState(65);
-  const [simIncome, setSimIncome] = useState(5000);
-  const [simInvestment, setSimInvestment] = useState(0); 
-
-  // --- Estados Salvos (Cabeçalho) ---
-  const [savedValues, setSavedValues] = useState({
-    age: 65,
+  // --- DADOS REAIS DO USUÁRIO ---
+  const [initialCapital, setInitialCapital] = useState(0); 
+  const [investedThisMonth, setInvestedThisMonth] = useState(0); 
+  
+  // --- ESTADOS DE EXIBIÇÃO (SÓ MUDAM AO SALVAR) ---
+  const [displayValues, setDisplayValues] = useState({
     income: 5000,
-    investment: 1000 
+    age: 65,
+    investment: 1000
   });
 
-  const [lastChanged, setLastChanged] = useState(null);
+  // --- PARÂMETROS DO SIMULADOR (MUDAM EM TEMPO REAL) ---
+  const [currentAge, setCurrentAge] = useState(30);
+  const [retirementAge, setRetirementAge] = useState(65);
+  const [desiredIncome, setDesiredIncome] = useState(5000);
+  const [monthlyInvestment, setMonthlyInvestment] = useState(1000);
+  
+  // --- ECONOMIA ---
+  const [selic, setSelic] = useState(10.0);
+  const [ipca, setIpca] = useState(6.0);
 
-  // --- Funções Auxiliares de Cálculo ---
+  const [planId, setPlanId] = useState<string | null>(null);
+
+  // Helper: Calcular Idade
+  const calculateAge = (birthDateString: string) => {
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Helper: Taxas
   const getRealMonthlyRate = () => {
-    const realAnnualRate = ((1 + selic / 100) / (1 + ipca / 100)) - 1;
-    return Math.pow(1 + realAnnualRate, 1 / 12) - 1;
+    const realRateYear = (1 + selic / 100) / (1 + ipca / 100) - 1;
+    return Math.pow(1 + realRateYear, 1 / 12) - 1;
   };
-
-  // --- Motor de Cálculo ---
-  useEffect(() => {
-    const r = getRealMonthlyRate();
-    const yearsToInvest = Math.max(1, simAge - currentAge);
-    const months = yearsToInvest * 12;
-
-    const totalCapitalRequired = simIncome / r;
-    const initialCapitalFutureValue = initialCapital * Math.pow(1 + r, months);
-    const gapToCover = totalCapitalRequired - initialCapitalFutureValue;
-
-    if (gapToCover <= 0) {
-        if (lastChanged !== 'monthlyInvestment') {
-            setSimInvestment(0);
-        }
-        return;
-    }
-
-    const annuityFactor = (Math.pow(1 + r, months) - 1) / r;
-
-    if (lastChanged === 'retirementAge' || lastChanged === 'desiredIncome' || lastChanged === null) {
-      const requiredInvestment = gapToCover / annuityFactor;
-      setSimInvestment(Math.max(0, Math.round(requiredInvestment)));
-    
-    } else if (lastChanged === 'monthlyInvestment') {
-      const futureGapCovered = simInvestment * annuityFactor;
-      const totalFutureCapital = initialCapitalFutureValue + futureGapCovered;
-      const possibleIncome = totalFutureCapital * r;
-      setSimIncome(Math.round(possibleIncome));
-    }
-    
-    setLastChanged(null);
-
-  }, [simAge, simIncome, simInvestment, currentAge, selic, ipca, initialCapital, lastChanged]);
 
   useEffect(() => {
-    if (savedValues.investment === 1000 && simInvestment !== 0) {
-       handleSave();
-    }
-  }, [simInvestment]);
+    loadData();
+  }, []);
 
-  // Handlers
-  const handleAgeChange = (val) => { setSimAge(val); setLastChanged('retirementAge'); };
-  const handleIncomeChange = (val) => { setSimIncome(val); setLastChanged('desiredIncome'); };
-  const handleInvestmentChange = (val) => { setSimInvestment(val); setLastChanged('monthlyInvestment'); };
+  const loadData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const handleSave = () => {
-    setSavedValues({
-      age: simAge,
-      income: simIncome,
-      investment: simInvestment
-    });
-  };
+      const { data: userData } = await supabase
+        .from('users')
+        .select('birth_date')
+        .eq('id', user.id)
+        .single();
 
-  const formatCurrency = (val) => 
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+      if (userData?.birth_date) {
+        const realAge = calculateAge(userData.birth_date);
+        setCurrentAge(realAge);
+      }
 
-  // --- Lógica do Badge (Status Card) ---
-  const investmentDiff = CURRENT_MONTH_INVESTED - savedValues.investment;
+      const { data: plan } = await supabase
+        .from('retirement_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-  const Badge = () => {
-    if (investmentDiff > 0) {
-      return (
-        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-emerald-200 shadow-sm animate-in fade-in zoom-in whitespace-nowrap">
-          <ArrowUpCircle size={14} strokeWidth={2.5} />
-          {formatCurrency(investmentDiff)} acima
-        </span>
-      );
-    }
-    if (investmentDiff === 0) {
-        return (
-          <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-emerald-200 shadow-sm animate-in fade-in zoom-in whitespace-nowrap">
-            <CheckCircle2 size={14} strokeWidth={2.5} />
-            Valor atingido
-          </span>
-        );
-    }
-    return (
-      <span className="bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border border-amber-200 shadow-sm animate-in fade-in zoom-in whitespace-nowrap">
-        <AlertCircle size={14} strokeWidth={2.5} />
-        Faltam {formatCurrency(Math.abs(investmentDiff))}
-      </span>
-    );
-  };
-
-  // --- Componentes UI ---
-
-  const SettingsModal = () => (
-    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 rounded-[2rem] flex items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
-      <div className="bg-white w-full shadow-2xl rounded-2xl border border-slate-100 p-6 relative">
-        <button 
-          onClick={() => setShowSettings(false)}
-          className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
-        >
-          <X size={20} />
-        </button>
+      if (plan) {
+        setPlanId(plan.id);
         
-        <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Settings size={18} className="text-blue-600" />
-          Premissas
-        </h3>
+        // Seta valores do simulador
+        setRetirementAge(plan.target_retirement_age);
+        setDesiredIncome(plan.desired_monthly_income);
+        setMonthlyInvestment(plan.monthly_contribution_goal);
+        setSelic(plan.assumptions_selic || 10);
+        setIpca(plan.assumptions_ipca || 6);
 
-        <div className="space-y-5">
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-              Patrimônio Atual
-            </label>
-            <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="text-slate-400 font-medium">R$</span>
-              <input 
-                type="number" 
-                value={initialCapital}
-                onChange={(e) => setInitialCapital(Number(e.target.value))}
-                className="bg-transparent font-bold text-slate-900 w-full outline-none"
-              />
-            </div>
-          </div>
+        // Seta valores de exibição (Resumo)
+        setDisplayValues({
+          income: plan.desired_monthly_income,
+          age: plan.target_retirement_age,
+          investment: plan.monthly_contribution_goal
+        });
+      }
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                Idade Atual
-              </label>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <input 
-                  type="number" 
-                  value={currentAge}
-                  onChange={(e) => setCurrentAge(Number(e.target.value))}
-                  className="bg-transparent font-bold text-slate-900 w-full outline-none"
-                />
-              </div>
-            </div>
-          </div>
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('balance')
+        .eq('user_id', user.id);
+      
+      const totalPatrimony = accounts?.reduce((sum, acc) => sum + acc.balance, 0) || 0;
+      setInitialCapital(totalPatrimony);
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Selic (%)</label>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <input type="number" value={selic} step="0.1" onChange={(e) => setSelic(Number(e.target.value))} className="bg-transparent font-bold text-slate-900 w-full outline-none"/>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">IPCA (%)</label>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <input type="number" value={ipca} step="0.1" onChange={(e) => setIpca(Number(e.target.value))} className="bg-transparent font-bold text-slate-900 w-full outline-none"/>
-              </div>
-            </div>
-          </div>
-          
-          <button 
-            onClick={() => setShowSettings(false)}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors mt-2 shadow-lg shadow-blue-200"
-          >
-            Aplicar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0,0,0,0);
 
-  const EditableValue = ({ value, type, min, max, onChange, suffix = '' }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [tempValue, setTempValue] = useState(value);
-    const inputRef = useRef(null);
+      const { data: investments } = await supabase
+        .from('transactions')
+        .select(`amount, categories!inner(scope)`)
+        .eq('user_id', user.id)
+        .eq('categories.scope', 'investment')
+        .gte('date', startOfMonth.toISOString());
 
-    useEffect(() => { if (!isEditing) setTempValue(value); }, [value, isEditing]);
-    useEffect(() => { if (isEditing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [isEditing]);
+      const totalInvested = investments?.reduce((sum, t) => sum + t.amount, 0) || 0;
+      setInvestedThisMonth(totalInvested);
 
-    const handleBlur = () => {
-      setIsEditing(false);
-      let newValue = Number(tempValue);
-      if (isNaN(newValue)) newValue = value;
-      if (newValue < min) newValue = min;
-      if (newValue > max) newValue = max;
-      onChange(newValue);
-    };
-
-    if (isEditing) {
-      return (
-        <input
-          ref={inputRef}
-          type="number"
-          value={tempValue}
-          onChange={(e) => setTempValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
-          className="text-base font-bold text-slate-900 w-24 text-right bg-white border border-blue-300 rounded px-1 outline-none ring-2 ring-blue-100"
-        />
-      );
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoading(false);
     }
-    let displayValue = type === 'currency' ? formatCurrency(value) : `${value} ${suffix}`;
-    return (
-      <span onClick={() => setIsEditing(true)} className="text-base font-bold text-slate-900 cursor-text hover:bg-slate-100 px-1 rounded transition-colors truncate max-w-[120px] text-right">
-        {displayValue}
-      </span>
-    );
   };
 
-  const SimulationRow = ({ Icon, label, value, min, max, step, onChange, type, suffix }) => {
-    const percentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="flex justify-between items-end text-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-white border border-slate-100 shadow-sm">
-              <Icon size={20} className="text-slate-500" strokeWidth={1.5} />
-            </div>
-            <span className="text-sm sm:text-base font-medium text-slate-600">{label}</span>
-          </div>
-          <EditableValue value={value} min={min} max={max} onChange={onChange} type={type} suffix={suffix} />
-        </div>
-        <div className="relative h-6 flex items-center group touch-none"> 
-          <div className="absolute w-full h-2 bg-slate-200 rounded-full overflow-hidden pointer-events-none">
-            <div className="h-full bg-blue-600 rounded-full transition-none" style={{ width: `${percentage}%` }}></div>
-          </div>
-          <div className="absolute h-5 w-5 bg-white rounded-full border-[3px] border-blue-600 shadow-md pointer-events-none transition-transform duration-100 ease-out group-hover:scale-110" style={{ left: `${percentage}%`, transform: 'translateX(-50%)' }}></div>
-          <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="absolute w-full h-full opacity-0 cursor-pointer z-10 m-0 p-0"/>
-        </div>
-      </div>
-    );
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const payload = {
+        user_id: user.id,
+        target_retirement_age: retirementAge,
+        desired_monthly_income: desiredIncome,
+        monthly_contribution_goal: monthlyInvestment,
+        current_age: currentAge,
+        assumptions_selic: selic,
+        assumptions_ipca: ipca
+      };
+
+      if (planId) {
+        await supabase.from('retirement_plans').update(payload).eq('id', planId);
+      } else {
+        await supabase.from('retirement_plans').insert(payload);
+      }
+      
+      // Atualiza o resumo superior apenas ao salvar
+      setDisplayValues({
+        income: desiredIncome,
+        age: retirementAge,
+        investment: monthlyInvestment
+      });
+
+      alert('Plano salvo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Lógica 1: Mudou Idade ou Renda -> Calcula Investimento Necessário
+  const recalculateInvestment = (newAge: number, newIncome: number) => {
+    const r = getRealMonthlyRate();
+    const months = Math.max(1, (newAge - currentAge) * 12);
+    
+    // Capital Necessário = Renda / Taxa
+    const requiredCapital = newIncome / r;
+    // Valor Futuro do Capital Inicial
+    const fvInitial = initialCapital * Math.pow(1 + r, months);
+    
+    const gap = requiredCapital - fvInitial;
+    if (gap <= 0) return 0;
+
+    // PMT = Gap * ( r / ((1+r)^n - 1) )
+    const pmt = gap * (r / (Math.pow(1 + r, months) - 1));
+    return Math.round(pmt);
+  };
+
+  // Lógica 2: Mudou Investimento -> Calcula Renda Possível
+  const recalculateIncome = (newInvestment: number, newAge: number) => {
+    const r = getRealMonthlyRate();
+    const months = Math.max(1, (newAge - currentAge) * 12);
+
+    // FV do Capital Inicial
+    const fvInitial = initialCapital * Math.pow(1 + r, months);
+    
+    // FV dos Aportes Mensais: PMT * ( ((1+r)^n - 1) / r )
+    const fvSeries = newInvestment * ((Math.pow(1 + r, months) - 1) / r);
+
+    const totalCapital = fvInitial + fvSeries;
+    
+    // Renda Perpétua = Capital * Taxa
+    const possibleIncome = totalCapital * r;
+    return Math.round(possibleIncome);
+  };
+
+  // Handlers de Mudança (Garante atualização bidirecional)
+  const handleAgeChange = (val: number) => {
+    setRetirementAge(val);
+    setMonthlyInvestment(recalculateInvestment(val, desiredIncome));
+  };
+
+  const handleIncomeChange = (val: number) => {
+    setDesiredIncome(val);
+    setMonthlyInvestment(recalculateInvestment(retirementAge, val));
+  };
+
+  const handleInvestmentChange = (val: number) => {
+    setMonthlyInvestment(val);
+    setDesiredIncome(recalculateIncome(val, retirementAge));
+  };
+
+  // Formatador
+  const formatMoney = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const diff = investedThisMonth - displayValues.investment; // Usa o valor salvo para o badge
+
+  if (loading) return <div className="p-8 text-center text-stone-500">Carregando simulador...</div>;
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 rounded-[2.5rem] bg-[#F0F5FF] shadow-xl font-sans transition-all duration-300 border border-white/50 relative overflow-hidden">
+    <div className="bg-[#F2F7FF] dark:bg-stone-900 rounded-[2.5rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden transition-all">
       
-      {showSettings && <SettingsModal />}
+      {/* Botão Configurações */}
+      <div className="absolute top-6 right-6 text-stone-300">
+        <Settings size={20} />
+      </div>
 
-      {/* --- CABEÇALHO --- */}
-      <div className="relative flex flex-col items-center mb-8 pt-2">
-        <button onClick={() => setShowSettings(true)} className="absolute right-0 top-0 text-slate-400 hover:text-blue-600 transition-colors p-2 hover:bg-blue-50 rounded-full">
-          <Settings size={22} />
-        </button>
-
-        <h1 className="text-[2.5rem] font-extrabold text-slate-900 leading-tight mt-4 tracking-tight text-center">
-          {formatCurrency(savedValues.income)}
-        </h1>
+      {/* --- ÁREA DE DESTAQUE (Dados Salvos/Display) --- */}
+      <div className="text-center mt-4 mb-8">
         
-        {/* Subtítulos */}
-        <div className="flex flex-col items-center gap-0.5 mt-1">
-          <p className="text-slate-500 font-medium text-sm">
-            Renda mensal aos <strong>{savedValues.age} anos</strong>
-          </p>
-          <p className="text-slate-500 font-medium text-sm">
-            investindo <strong className="text-slate-700">{formatCurrency(savedValues.investment)}</strong> por mês
-          </p>
+        {/* Input Gigante (Apenas Leitura aqui, reflete displayValues) */}
+        <div className="flex items-baseline justify-center gap-1 relative mb-1 text-stone-900 dark:text-white">
+           <span className="text-3xl font-bold tracking-tighter text-stone-900 dark:text-white">R$</span>
+           <span className="text-6xl font-extrabold tracking-tighter text-stone-900 dark:text-white">
+             {displayValues.income.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+           </span>
         </div>
+        <p className="text-xs text-stone-500 font-medium tracking-wide">Renda mensal desejada</p>
 
-        {/* Status Investimento Card */}
-        <div className="mt-6 w-full bg-white/60 p-3 rounded-xl border border-white shadow-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-            <span className="text-sm text-slate-600 font-medium text-center sm:text-left">
-              Esse mês você já investiu <strong>{formatCurrency(CURRENT_MONTH_INVESTED)}</strong>
+        <p className="text-sm text-stone-600 dark:text-stone-300 mt-4 font-medium">
+          Renda aos <span className="font-bold text-stone-900 dark:text-white">{displayValues.age} anos</span> investindo <span className="font-bold text-stone-900 dark:text-white">R$ {formatMoney(displayValues.investment)}</span> por mês
+        </p>
+      </div>
+
+      {/* --- CARD STATUS --- */}
+      <div className="bg-white dark:bg-stone-800 p-5 rounded-3xl shadow-sm border border-stone-100 dark:border-stone-700 flex items-center justify-between mb-8">
+        <div>
+          <p className="text-[10px] text-stone-500 font-bold  tracking-wider mb-1">Esse mês você já investiu</p>
+          <div className="flex items-baseline text-stone-900 dark:text-white">
+            <span className="text-sm font-bold mr-1">R$</span>
+            <span className="text-3xl font-extrabold tracking-tighter">
+              {investedThisMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 }).split(',')[0]}
             </span>
-            <Badge />
+            <span className="text-sm font-bold ml-0.5">
+              ,{investedThisMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 }).split(',')[1]}
+            </span>
           </div>
         </div>
+        
+        {diff >= 0 ? (
+          <div className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+            {diff > 0 ? <ArrowUpCircle size={14} strokeWidth={2.5} /> : <CheckCircle2 size={14} strokeWidth={2.5} />}
+            {diff > 0 ? `R$ ${formatMoney(diff)} acima` : 'Meta batida'}
+          </div>
+        ) : (
+          <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 whitespace-nowrap border border-amber-100 dark:border-amber-800/50">
+            <AlertCircle size={14} strokeWidth={2.5} />
+            Faltam R$ {formatMoney(Math.abs(diff))}
+          </div>
+        )}
       </div>
 
-      <div className="w-full h-px bg-slate-200 mb-6"></div>
-
-      {/* --- Toggle Simulação --- */}
-      <div className="flex justify-between items-center mb-2 px-1">
-        <span className="text-lg text-slate-700 font-semibold tracking-tight">Simular novo cenário</span>
-        <button 
-          onClick={() => setIsSimulating(!isSimulating)}
-          className={`w-12 h-7 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 focus:outline-none ${isSimulating ? 'bg-blue-600' : 'bg-slate-300'}`}
-        >
-          <div className={`bg-white w-5 h-5 rounded-full shadow-sm transform duration-300 ease-out ${isSimulating ? 'translate-x-5' : 'translate-x-0'}`}></div>
-        </button>
+      {/* --- ÁREA DE CONTROLES (TOGGLE) --- */}
+      <div className="flex justify-between items-center mb-6 px-1">
+        <h3 className="text-lg font-bold text-stone-900 dark:text-white tracking-tight">Simular novo cenário</h3>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input 
+            type="checkbox" 
+            checked={showSimulator} 
+            onChange={() => setShowSimulator(!showSimulator)} 
+            className="sr-only peer" 
+          />
+          <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-stone-900"></div>
+        </label>
       </div>
 
-      {/* --- ÁREA DE SIMULAÇÃO --- */}
-      {isSimulating && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-300 bg-white/50 rounded-2xl p-4 mt-4 border border-white relative">
+      {/* --- SIMULADOR EXPANSÍVEL --- */}
+      {showSimulator && (
+        <div className="bg-white dark:bg-stone-800 rounded-3xl p-6 pt-14 shadow-sm border border-stone-100 dark:border-stone-700 relative animate-in slide-in-from-top-4 fade-in duration-300">
           
-          {/* Botão Salvar Compacto (Topo) */}
-          <div className="flex justify-end mb-4">
-            <button 
-              onClick={handleSave}
-              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-full transition-all shadow-md shadow-slate-200 flex items-center gap-1.5 active:scale-95"
-            >
-              <Save size={14} />
-              Salvar
-            </button>
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="absolute top-5 right-5 bg-stone-900 dark:bg-emerald-600 text-white text-[10px] font-bold px-4 py-2 rounded-full flex items-center gap-1.5 hover:bg-stone-800 transition-colors z-10 shadow-md active:scale-95"
+          >
+            {saving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12} />}
+            Salvar
+          </button>
+
+          {/* SLIDER 1: IDADE APOSENTADORIA */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
+                  <CalendarDays size={18} />
+                </div>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400  tracking-wide">Aposentadoria</span>
+              </div>
+              
+              <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
+                  <input
+                    type="number"
+                    value={retirementAge}
+                    onChange={(e) => handleAgeChange(Number(e.target.value))}
+                    className="w-10 text-right font-extrabold text-stone-900 dark:text-white bg-transparent outline-none p-0 text-lg"
+                  />
+                  <span className="text-sm font-bold text-stone-500 ml-1">anos</span>
+              </div>
+            </div>
+            <input 
+              type="range" 
+              min={currentAge + 1} 
+              max={90} 
+              value={retirementAge}
+              onChange={(e) => handleAgeChange(Number(e.target.value))}
+              className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500"
+            />
           </div>
 
-          <div className="space-y-8 pb-2">
-            <SimulationRow 
-              Icon={CalendarDays} 
-              label="Idade de aposentadoria" 
-              value={simAge} min={currentAge + 1} max={90} step={1} onChange={handleAgeChange} type="number" suffix="anos"
-            />
-            <SimulationRow 
-              Icon={CircleDollarSign} 
-              label="Renda mensal desejada" 
-              value={simIncome} min={1000} max={50000} step={100} onChange={handleIncomeChange} type="currency"
-            />
-            <SimulationRow 
-              Icon={PiggyBank} 
-              label="Investimento mensal necessário" 
-              value={simInvestment} min={0} max={30000} step={50} onChange={handleInvestmentChange} type="currency"
+          {/* SLIDER 2: RENDA DESEJADA */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
+                  <CircleDollarSign size={18} />
+                </div>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400  tracking-wide">Renda Mensal</span>
+              </div>
+
+              <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
+                  <span className="text-xs font-bold text-stone-500 mr-1">R$</span>
+                  <input
+                    type="text"
+                    value={desiredIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    onChange={(e) => {
+                        const value = Number(e.target.value.replace(/\D/g, '')) / 100;
+                        handleIncomeChange(value);
+                    }}
+                    className="w-24 text-right font-extrabold text-stone-900 dark:text-white bg-transparent outline-none p-0 text-lg"
+                  />
+              </div>
+            </div>
+            <input 
+              type="range" 
+              min={1000} 
+              max={50000} 
+              step={500}
+              value={desiredIncome}
+              onChange={(e) => handleIncomeChange(Number(e.target.value))}
+              className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500"
             />
           </div>
+
+          {/* SLIDER 3: APORTE NECESSÁRIO (Agora editável com Slider) */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
+                  <PiggyBank size={18} />
+                </div>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Aporte Necessário</span>
+              </div>
+
+              <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
+                  <span className="text-xs font-bold text-stone-500 mr-1">R$</span>
+                  <input
+                    type="text"
+                    value={monthlyInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    onChange={(e) => {
+                        const value = Number(e.target.value.replace(/\D/g, '')) / 100;
+                        handleInvestmentChange(value);
+                    }}
+                    className="w-24 text-right font-extrabold text-stone-900 dark:text-white bg-transparent outline-none p-0 text-lg"
+                  />
+              </div>
+            </div>
+            <input 
+              type="range" 
+              min={0} 
+              max={20000} 
+              step={50}
+              value={monthlyInvestment}
+              onChange={(e) => handleInvestmentChange(Number(e.target.value))}
+              className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500"
+            />
+          </div>
+
+          {/* CONFIGURAÇÕES AVANÇADAS */}
+          <div className="mt-8 pt-6 border-t border-stone-100 dark:border-stone-700">
+            <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-4">Premissas Econômicas</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">Idade Atual</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={currentAge} 
+                    disabled 
+                    className="w-full bg-stone-50 text-stone-400 rounded-xl p-2.5 pl-9 text-sm font-bold border border-stone-200 cursor-not-allowed" 
+                  />
+                  <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">Patrimônio Inicial</label>
+                <div className="relative">
+                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-stone-400">R$</span>
+                   <input type="number" value={initialCapital} disabled className="w-full bg-stone-50 text-stone-400 rounded-xl p-2.5 pl-8 text-sm font-bold border border-stone-200 cursor-not-allowed" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">Selic (%)</label>
+                <input type="number" step="0.1" value={selic} onChange={(e) => setSelic(Number(e.target.value))} className="w-full bg-white rounded-xl p-2.5 text-sm font-bold border border-stone-200 focus:ring-2 focus:ring-stone-900 outline-none" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-stone-600 block mb-1.5">IPCA (%)</label>
+                <input type="number" step="0.1" value={ipca} onChange={(e) => setIpca(Number(e.target.value))} className="w-full bg-white rounded-xl p-2.5 text-sm font-bold border border-stone-200 focus:ring-2 focus:ring-stone-900 outline-none" />
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
   );
-};
-
-export default RetirementSimulatorMock;
+}

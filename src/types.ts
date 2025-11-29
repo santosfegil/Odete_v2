@@ -64,12 +64,33 @@ export interface WalletData {
   currentMonth: string;
 }
 
-export interface Medal {
+// Adicione ou substitua estas definições
+export interface Achievement {
   id: string;
-  icon: string;
-  name: string;
+  title: string;
   description: string;
+  category: 'saver' | 'investor' | 'goals';
+  icon_slug: string;
+}
+
+// Interface combinada para o Frontend (Dados + Estado de Conquista)
+export interface Medal extends Achievement {
+  earned: boolean;
+  earned_at?: string;
+}
+
+export interface Medal {
+
+  id: string;
+
+  icon: string;
+
+  name: string;
+
+  description: string;
+
   earned?: boolean;
+
 }
 
 export interface Goal {
