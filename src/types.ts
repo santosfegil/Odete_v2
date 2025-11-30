@@ -194,3 +194,42 @@ export interface WeeklyChallenge {
     status: 'success' | 'failed' | 'pending' | 'today';
   }[];
 }
+
+export interface Message {
+  id: string;
+  role: 'user' | 'model' | 'system';
+  content: string;
+  type?: 'text' | 'audio' | 'image';
+  timestamp: Date; // Note: When saving/loading from JSON, this needs to be re-instantiated
+}
+
+export enum OdeteMode {
+  MIMAR = 'mimar',
+  JULGAR = 'julgar'
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  lastModified: number;
+  mode: OdeteMode;
+  preview: string;
+}
+
+export interface SystemPrompts {
+  mimar: string;
+  julgar: string;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: any;
+}
+
+// Function calling interface mock
+export interface DatabaseTool {
+  name: string;
+  execute: (args: any) => Promise<string>;
+}
