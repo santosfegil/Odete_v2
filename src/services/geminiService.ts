@@ -1,15 +1,12 @@
 import { GoogleGenAI, Type, FunctionDeclaration, Tool, Part } from "@google/genai";
 import { DatabaseTool } from "../types";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 // --- Configuration ---
-// Replace with your actual Supabase URL and Anon Key
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || ''; 
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// --- Tool Definitions (Structure ready for DB connection) ---
-
-// 1. Check Balance Tool
+// --- Tool Definitions ---
 const checkBalanceTool: FunctionDeclaration = {
   name: 'checkBalance',
   description: 'Verifica o saldo atual da conta bancária do usuário.',
@@ -24,7 +21,6 @@ const checkBalanceTool: FunctionDeclaration = {
   },
 };
 
-// 2. Check Expenses Tool
 const checkExpensesTool: FunctionDeclaration = {
   name: 'checkExpenses',
   description: 'Verifica gastos recentes em uma categoria específica ou no geral.',
@@ -71,20 +67,15 @@ const dbTools: Record<string, DatabaseTool> = {
 
 export class GeminiService {
   private ai: GoogleGenAI;
-  private apiKey: string;
-  private supabase: any; // Typed as any to avoid import errors if package missing
+  private isClientKeyValid: boolean; // 🟢 1. Nova flag de controle
+  private supabase = supabase; 
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey;
+    // 🟢 2. Verifica se a chave é o placeholder ou uma chave real
+    this.isClientKeyValid = apiKey !== 'proxy-mode';
     this.ai = new GoogleGenAI({ apiKey });
-    
-    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        this.supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
   }
 
-  // Text Chat with Function Calling
-  // UPDATED: Can now optionally route through Supabase Edge Function
   async sendMessage(
     message: string,
     history: any[],
@@ -94,25 +85,34 @@ export class GeminiService {
     mode?: 'mimar' | 'julgar'
   ): Promise<string> {
     
-    // --- OPTION A: PROXY BACKEND (Try Supabase first) ---
-    // Note: We currently only proxy simple text messages without tools/audio for this demo version
-    if (this.supabase && !audioData && !onToolCall) { 
+    // --- OPTION A: PROXY BACKEND ---
+    // 🟢 3. REMOVIDO "!onToolCall" da condição para forçar o uso do Proxy em texto
+    if (this.supabase && !audioData) { 
         try {
             console.log("Attempting to use Supabase Proxy...");
             const { data, error } = await this.supabase.functions.invoke('odete-chat', {
                 body: { message, history, mode }
             });
             
-            if (error) throw error;
+            if (error) {
+              throw new Error(`Erro de Invocação do Proxy: ${error.message}`)
+            }
             if (data && data.text) return data.text;
             
-        } catch (e) {
-            console.warn("Backend proxy failed/skipped, falling back to client-side:", e);
-            // Fallthrough to Option B
+        } catch (e: any) {
+            console.warn("Backend proxy failed, error:", e);
+            // 🟢 4. Retorna erro aqui e NÃO deixa cair no fallback se falhar
+            return `Erro no servidor da Odete: ${e.message || 'Serviço indisponível'}`;
         }
     }
 
-    // --- OPTION B: CLIENT SIDE (Fallback & Full Features) ---
+    // --- OPTION B: CLIENT SIDE (Fallback) ---
+    
+    // 🟢 5. TRAVA DE SEGURANÇA: Impede execução local com chave inválida
+    if (!this.isClientKeyValid) {
+        return "Configuração necessária: Para usar recursos avançados (áudio/local), adicione uma VITE_GEMINI_API_KEY válida no .env ou use o backend.";
+    }
+
     try {
       const modelId = 'gemini-2.5-flash'; 
       
@@ -142,9 +142,8 @@ export class GeminiService {
 
       let response = await chat.sendMessage({ message: msgContent });
       
-      // Handle Function Calls loop (Client Side logic)
+      // Lógica de Tool Calling Local
       let text = response.text;
-      
       const candidates = response.candidates;
       if (candidates && candidates[0]?.content?.parts) {
         for (const part of candidates[0].content.parts) {
@@ -184,8 +183,12 @@ export class GeminiService {
     }
   }
   
-  // Image Analysis
   async analyzeImage(base64Image: string, prompt: string, systemInstruction: string): Promise<string> {
+    // 🟢 6. Trava também para imagens
+    if (!this.isClientKeyValid) {
+        return "Erro: Análise de imagem requer chave de API no frontend.";
+    }
+
     try {
         const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',

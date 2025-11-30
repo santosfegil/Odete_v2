@@ -197,10 +197,12 @@ export interface WeeklyChallenge {
 
 export interface Message {
   id: string;
+  session_id?: string; // Agora vinculado a uma sessão
   role: 'user' | 'model' | 'system';
   content: string;
   type?: 'text' | 'audio' | 'image';
-  timestamp: Date; // Note: When saving/loading from JSON, this needs to be re-instantiated
+  timestamp: Date;
+  metadata?: any; 
 }
 
 export enum OdeteMode {
@@ -210,11 +212,12 @@ export enum OdeteMode {
 
 export interface ChatSession {
   id: string;
+  user_id: string;
   title: string;
-  messages: Message[];
-  lastModified: number;
   mode: OdeteMode;
   preview: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SystemPrompts {
