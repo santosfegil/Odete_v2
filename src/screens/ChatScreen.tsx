@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Phone, Plus, Paperclip, Camera, Mic, Send, Settings, AudioLines,
-  X, ArrowLeft, MessageSquarePlus, Trash2, CheckCheck, SendHorizontal
+  Phone, Plus, Paperclip, Camera, Mic, Send, AudioLines, ArrowLeft, MessageSquarePlus, Trash2, CheckCheck, SendHorizontal
 } from 'lucide-react';
 import { LiveServerMessage, Modality } from '@google/genai';
 import { GeminiService } from '../services/geminiService';
@@ -11,6 +10,7 @@ import VoiceModal from '../components/VoiceModal';
 import { Message, OdeteMode, SystemPrompts, ChatSession } from '../types';
 import { supabase } from '../lib/supabase'; // 🟢 Import Supabase
 import { useAuth } from '../contexts/AuthContext'; // 🟢 Import Auth
+import { User,LogOut } from 'lucide-react';
 
 // --- Constants ---
 // REMOVIDO: const STORAGE_KEY = 'odete_chat_sessions_v1';
@@ -26,12 +26,38 @@ interface ChatScreenProps {
   onShowProfile?: () => void; // Mantendo compatibilidade se for passado via props
 }
 
-const ChatScreen: React.FC<ChatScreenProps> = () => {
+
+const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
   // --- Global State ---
   // Placeholder para passar na validação local, já que usamos backend
   const [apiKey, setApiKey] = useState('proxy-mode'); 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [prompts, setPrompts] = useState<SystemPrompts>(DEFAULT_PROMPTS);
+  const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const { signOut } = useAuth();
+
+
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setShowMenu(false);
+        }
+      };
+  
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleProfileClick = () => {
+      onShowProfile();
+      setShowMenu(false);
+    };
+    const handleLogout = async () => {
+      setShowMenu(false);
+      await signOut();
+    };
+
 
   // --- Auth & Data State ---
   const { user } = useAuth(); // 🟢 Pegando usuário logado
@@ -66,7 +92,41 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
   const nextStartTimeRef = useRef<number>(0);
   const sourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
-  // --- Initialization Effects ---
+// ... outros states (sessions, activeChatId, etc)
+
+  // 🟢 NOVO: Estado para controlar qual ID está sendo excluído
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
+
+  // 🟢 NOVO: Apenas abre o modal (não deleta ainda)
+  const requestDeleteSession = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setDeleteConfirmationId(id);
+  };
+
+  // 🟢 NOVO: Executa a exclusão de fato (Chamar no botão "Confirmar" do modal)
+  const confirmDeleteSession = async () => {
+    if (!deleteConfirmationId) return;
+    const id = deleteConfirmationId;
+
+    try {
+      const { error } = await supabase
+        .from('ai_chat_sessions')
+        .update({ is_archived: true }) 
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setSessions(prev => prev.filter(s => s.id !== id));
+      if (activeChatId === id) setActiveChatId(null);
+      
+    } catch (err) {
+      console.error('Erro ao deletar:', err);
+    } finally {
+      setDeleteConfirmationId(null); // Fecha o modal
+    }
+  };
+
+
 
   // 1. Initialize Gemini Service
   useEffect(() => {
@@ -82,7 +142,7 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
     }
   }, [messages, activeChatId]);
 
-  // 3. 🟢 CARREGAR SESSÕES DO SUPABASE (Substitui LocalStorage)
+  // 3. 🟢 CARREGAR SESSÕES DO SUPABASE (Filtrando inativas)
   useEffect(() => {
     if (!user) return;
 
@@ -91,6 +151,7 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
         .from('ai_chat_sessions')
         .select('*')
         .eq('user_id', user.id)
+        .neq('is_archived', 'TRUE') // <--- ADICIONADO: Filtra excluídos
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -108,24 +169,40 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
   // 🟢 CRIAR NOVA CONVERSA NO BANCO
   const createNewChat = async () => {
     if (!user) return;
-
+    const initialGreeting = "Olá, sou a Odete, sua assistente financeira, como posso te ajudar hoje?";
     try {
-      const { data, error } = await supabase
+      const { data: sessionData, error: sessionError} = await supabase
         .from('ai_chat_sessions')
         .insert({
           user_id: user.id,
           mode: OdeteMode.MIMAR,
           title: 'Nova Conversa',
-          preview: 'Iniciando...'
+          preview: initialGreeting,
+          updated_at: new Date().toISOString()
         })
         .select()
         .single();
 
-      if (error) throw error;
-      if (data) {
-        setSessions(prev => [data, ...prev]);
-        openChat(data);
-      }
+        if (sessionError) throw sessionError;
+
+        if (sessionData) {
+          // 2. Insere a mensagem inicial da Odete na tabela de mensagens
+          const { error: msgError } = await supabase
+              .from('ai_chat_messages')
+              .insert({
+                  session_id: sessionData.id,
+                  role: 'model', // Importante: role 'model' para aparecer como a IA
+                  content: initialGreeting
+              });
+              if (msgError) {
+                console.error('Erro ao criar mensagem inicial:', msgError);
+                // Não paramos o fluxo aqui, pois a sessão foi criada
+            }
+    
+            // 3. Atualiza estado e abre o chat
+            setSessions(prev => [sessionData, ...prev]);
+            openChat(sessionData); // Ao abrir, ele vai puxar a mensagem que acabamos de inserir
+          }
     } catch (err) {
       console.error('Erro ao criar chat:', err);
       alert('Não foi possível criar uma nova conversa.');
@@ -172,13 +249,24 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
   // 🟢 DELETAR SESSÃO NO BANCO
   const deleteSession = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm('Tem certeza que deseja apagar esta conversa?')) return;
+    
+    // Confirmação obrigatória antes de excluir
+    const confirmDelete = window.confirm('Tem certeza que deseja apagar esta conversa?');
+    if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase.from('ai_chat_sessions').delete().eq('id', id);
+      const { error } = await supabase
+        .from('ai_chat_sessions')
+        .update({ is_archived: true }) // Passando boolean correto, não string
+        .eq('id', id);
+
       if (error) throw error;
 
+      // Atualiza lista local removendo o item visualmente
       setSessions(prev => prev.filter(s => s.id !== id));
+      
+      // Se a conversa excluída for a que está aberta no momento, fecha ela
+      if (activeChatId === id) setActiveChatId(null);
       if (activeChatId === id) setActiveChatId(null);
     } catch (err) {
       console.error('Erro ao deletar:', err);
@@ -193,6 +281,7 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
         supabase.from('ai_chat_sessions')
         .select('*')
         .eq('user_id', user.id)
+        .neq('is_archived', 'TRUE') // <--- ADICIONADO: Filtra excluídos
         .order('updated_at', { ascending: false })
         .then(({ data }) => { if(data) setSessions(data as ChatSession[]) });
     }
@@ -560,9 +649,36 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
           <div className="bg-[#E0F2E9] p-4 flex items-center justify-between shadow-sm z-10">
             <h1 className="font-bold text-gray-900 text-lg">Conversas</h1>
             <div className="flex gap-2">
-                 <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-emerald-700 rounded-full hover:bg-emerald-100"><Settings size={22}/></button>
-                 <button onClick={createNewChat} className="p-2 text-emerald-700 rounded-full hover:bg-emerald-100"><MessageSquarePlus size={22}/></button>
-            </div>
+            <button onClick={createNewChat} className="p-2 text-emerald-700 rounded-full hover:bg-emerald-100"><MessageSquarePlus size={22}/></button>
+       
+            <div className="flex items-center space-x-4 text-stone-700 dark:text-stone-300 relative" ref={menuRef}>
+                    <button
+                      onClick={() => setShowMenu(!showMenu)}
+                      className="p-2 rounded-full hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
+                    >
+                      <User className="w-6 h-6" />
+                    </button>
+            
+                    {showMenu && (
+                      <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-lg border border-stone-200 dark:border-stone-800 overflow-hidden z-50">
+                        <button
+                          onClick={handleProfileClick}
+                          className="w-full px-4 py-3 text-left text-sm text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center gap-2"
+                        >
+                          <User className="w-4 h-4" />
+                          Meu perfil
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sair
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                       </div>
           </div>
           
           <div className="flex-1 overflow-y-auto bg-white pb-32">
@@ -595,13 +711,51 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
                             onClick={(e) => deleteSession(e, session.id)}
                             className="p-2 text-gray-300 hover:text-red-500 transition-colors"
                         >
-                            <Trash2 size={16} />
+                            <button 
+    onClick={(e) => requestDeleteSession(e, session.id)}
+    className="p-3 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-20"
+    title="Excluir conversa"
+>
+    <Trash2 size={18} />
+</button>
                         </button>
                     </div>
                 ))
             )}
           </div>
           
+
+          {deleteConfirmationId && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir conversa?</h3>
+                <p className="text-gray-600 mb-6 mu-2 ml-1 text-sm">
+                  Essa ação removerá sua conversa permanentemente.
+                </p>
+
+                <p className="text-gray-600 mb-6  mu-2 ml-1 text-sm">
+                Você não poderá reverter essa conversa depois.
+                </p>
+
+                
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setDeleteConfirmationId(null)}
+                    className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={confirmDeleteSession}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 size={16} /> Excluir
+                  </button>
+                </div>
+              </div>
+              </div>
+          )}
+
           <SettingsModal 
             isOpen={isSettingsOpen} 
             onClose={() => setIsSettingsOpen(false)}
@@ -651,9 +805,34 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
           >
              {isLiveActive ? <AudioLines size={24} className="animate-pulse" /> : <Phone size={24} />}
           </button>
-          <button onClick={() => setIsSettingsOpen(true)} className="hover:bg-emerald-100 p-2 rounded-full transition-colors">
-             <Settings size={24} />
-          </button>
+          
+          <div className="flex items-center space-x-4 text-stone-700 dark:text-stone-300 relative" ref={menuRef}>
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 rounded-full hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors"
+                  >
+                    <User className="w-6 h-6" />
+                  </button>
+          
+                  {showMenu && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-lg border border-stone-200 dark:border-stone-800 overflow-hidden z-50">
+                      <button
+                        onClick={handleProfileClick}
+                        className="w-full px-4 py-3 text-left text-sm text-stone-900 dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors flex items-center gap-2"
+                      >
+                        <User className="w-4 h-4" />
+                        Meu perfil
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sair
+                      </button>
+                    </div>
+                  )}
+                </div>
         </div>
       </header>
 
@@ -745,6 +924,32 @@ const ChatScreen: React.FC<ChatScreenProps> = () => {
             </button>
         )}
       </div>
+
+
+      {deleteConfirmationId && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir conversa?</h3>
+                <p className="text-gray-600 mb-6 text-sm">
+                  Essa ação removerá a conversa da sua lista. Você não poderá desfazer isso.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button 
+                    onClick={() => setDeleteConfirmationId(null)}
+                    className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={confirmDeleteSession}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 size={16} /> Excluir
+                  </button>
+                </div>
+              </div>
+              </div>
+          )}
 
       <SettingsModal 
         isOpen={isSettingsOpen} 

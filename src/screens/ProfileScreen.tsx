@@ -7,6 +7,7 @@ import { EditInfoModal } from '../components/EditInfoModal';
 import { LegalModal } from '../components/LegalModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import { TERMS_CONTENT, PRIVACY_CONTENT } from '../constants/LegalTexts';
+import BankConnectButton from '../components/Pluggy/BankConnectButton'; // O caminho relativo
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -14,7 +15,7 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
-  const { signOut, user } = useAuth();
+  const { signOut, user, session } = useAuth(); // MODIFICADO: Adicionado 'session'
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   
@@ -40,15 +41,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
       
-      // 4. ALTERADO: Em vez de alert(), usamos o setNotification
       setNotification({ text: 'Dados atualizados com sucesso!', type: 'success' });
     } catch (error: any) {
-      // 4. ALTERADO: Mensagem de erro visual
       setNotification({ text: 'Erro ao atualizar: ' + error.message, type: 'error' });
     }
   };
-  // Conteúdo dos termos
-
 
   const handleLogout = async () => {
     await signOut();
@@ -75,7 +72,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 
       <main className="flex-grow space-y-6 pb-6">
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">INFORMAÇÃO PESSOAL</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Informação pessoal</h2>
           <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('name')}>
             <span className="text-stone-600 dark:text-stone-300">Nome</span>
             <div className="flex items-center gap-2">
@@ -88,7 +85,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">DETALHES DA CONTA</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Detalhes da conta</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditingField('email')}>
               <span className="text-stone-600 dark:text-stone-300 " >E-mail</span>
@@ -115,9 +112,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
             </div>
           </div>
         </div>
+        <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Contas conectadas</h2>
+          <div className="flex items-center justify-between">
+            {/* MODIFICADO: Passando o token de acesso do usuário */}
+            <BankConnectButton userToken={session?.access_token} />
+          </div>
+        </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">ASSINATURA</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Assinatura</h2>
           <div className="flex items-center justify-between">
             <span className="font-medium">Gerenciar assinatura</span>
             <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
@@ -125,7 +129,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">PAGAMENTOS</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Pagamentos</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="font-medium">Método de pagamento</span>
@@ -146,7 +150,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">AJUDA</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Ajuda</h2>
           <div className="flex items-center justify-between">
             <span className="font-medium">Central de ajuda</span>
             <ChevronRight className="w-5 h-5 text-stone-400 dark:text-stone-500" />
@@ -154,7 +158,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">LEGAL</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Legal</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between cursor-pointer"onClick={() => setShowTerms(true)}>
               <span className="font-medium">Termos</span>
@@ -168,7 +172,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">IDIOMA</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Idioma</h2>
           <div className="flex items-center justify-between">
             <span className="text-stone-600 dark:text-stone-300">Idioma</span>
             <div className="flex items-center gap-2">
@@ -179,7 +183,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         </div>
 
         <div className="p-6 bg-white dark:bg-stone-800 rounded-3xl shadow-sm">
-          <h2 className="text-sm font-semibold text-emerald-500 mb-4">PRIVACIDADE DE DADOS</h2>
+          <h2 className="text-sm font-semibold text-emerald-500 mb-4">Privacidade de dados</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="font-medium">Baixar dados</span>
@@ -205,7 +209,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
 {/* Modais flutuantes */}
 
       {editingField === 'password' ? (
-        // 1. Se for SENHA, mostra o modal NOVO e específico
         <ChangePasswordModal
           userEmail={user?.email}
           onClose={() => setEditingField(null)}
@@ -230,8 +233,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack }) => {
         />
   )
       )}
-
-
 
 {showTerms && (
         <LegalModal 

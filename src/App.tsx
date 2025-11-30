@@ -19,7 +19,7 @@ import type { Screen } from './types';
 function App() {
   const { user, loading } = useAuth();
   const [showSignUp, setShowSignUp] = useState(false);
-  const [activeTab, setActiveTab] = useState<Screen>('home');
+  const [activeTab, setActiveTab] = useState<Screen>('chat');
   const [walletTab, setWalletTab] = useState<'controle' | 'conquistas'>('controle');
   const [showAllGoals, setShowAllGoals] = useState(false);
   const [showAllMedals, setShowAllMedals] = useState(false);
