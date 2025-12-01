@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase'; //  cliente Supabase
 import { PluggyConnect } from 'react-pluggy-connect';
+
+
+// Código do hook para obter o publicToken de forma segura
+import { usePluggyToken } from '../hooks/usePluggyToken';
 
 interface BankConnectButtonProps {
   userToken?: string;
@@ -51,11 +56,54 @@ const BankConnectButton: React.FC<BankConnectButtonProps> = ({ userToken }) => {
     fetchToken();
   }, [userToken]); // A dependência do useEffect é o userToken
 
-  const handleSuccess = (payload: any) => {
+  const handleSuccess = async(payload: any) => {
+    alert('Conexão Pluggy BEM SUCEDIDA. Verificando Token...');
+
+
+    // 2. EXTRAÇÃO DO ITEM ID E TOKEN DE USUÁRIO
+    const itemId = payload.item?.id;
+
+    // Verifique o valor do token que será enviado
+    if (!userToken) {
+        alert('ERRO CRÍTICO: userToken não encontrado. A sincronização FALHOU.');
+        setIsWidgetOpen(false);
+        return; 
+    }
+
+    if (!itemId) {
+        alert('ERRO CRÍTICO: Item ID da Pluggy não encontrado no payload.');
+        setIsWidgetOpen(false);
+        return; 
+    }
+
+    alert(`Token Ok: ${userToken.slice(0, 10)}... | Item ID: ${itemId}`); // Mostra os primeiros 10 caracteres do token
+    
+    setIsWidgetOpen(false);
     console.log('Conexão com o banco realizada com sucesso!', payload);
     setIsWidgetOpen(false);
-    // Aqui você pode chamar uma função para salvar o `itemId` (payload.item.id) no seu banco de dados,
-    // associando-o ao usuário logado.
+    try {
+      // Invoca a Edge Function 'sync-bank-data' para salvar Contas e Transações
+      const { data, error } = await supabase.functions.invoke('sync-bank-data', {
+        body: { 
+          itemId: payload.item.id 
+        },
+        // Garante que o token do usuário seja passado para manter o contexto de quem está chamando
+        headers: {
+            Authorization: `Bearer ${userToken}` 
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('Sincronização iniciada com sucesso:', data);
+      alert('Conexão realizada! Seus dados estão sendo importados.');
+
+    } catch (err) {
+      console.error('Erro ao invocar sync-bank-data:', err);
+      alert('Conexão feita, mas houve um erro ao iniciar a importação dos dados.');
+    }
+    
+
   };
 
   const handleError = (error: any) => {
