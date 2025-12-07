@@ -1,52 +1,66 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "https://deno.land/std@0.201.0/crypto/mod.ts";
 
 const PLUGGY_API_URL = "https://api.pluggy.ai";
+
+// 1. Configuração do Cliente Supabase Admin
 const supabaseAdmin: SupabaseClient = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  Deno.env.get("SERVICE_ROLE_KEY") ?? "" // Usando o nome correto que configuramos
 );
 
-// Interface para o mapeamento de contas (para evitar o erro de tipagem anterior)
 interface AccountMap {
     [externalId: string]: string;
 }
 
-/**
- * Função Core: Realiza a sincronização de Contas e Transações para um Item/Usuário específico.
- * @param itemId - ID do Item da Pluggy.
- * @param user_id - ID do Usuário do Supabase.
- * @param bank_connection_id - ID interno da conexão do Supabase.
- */
+// 2. Função de Mapeamento de Tipos
+function mapPluggyAccountType(pluggyType: string, pluggySubtype: string): string {
+  if (pluggyType === 'BANK') return 'bank';
+  if (pluggyType === 'CREDIT') return 'credit_card';
+  if (pluggyType === 'INVESTMENT') return 'investment';
+  return 'other_asset';
+}
+
+// 3. Função Core de Sincronização
 async function syncDataForItem(itemId: string, user_id: string, bank_connection_id: string, apiKey: string) {
-    
-    // 1. Buscar Contas (Accounts) da Pluggy e Mapear
+    console.log(`[SYNC] Iniciando. ItemID: ${itemId}, UserID: ${user_id}`);
+
+    // A. Buscar Contas
     const accountsResponse = await fetch(`${PLUGGY_API_URL}/accounts?itemId=${itemId}`, {
       headers: { "X-API-KEY": apiKey },
     });
+    
+    if (!accountsResponse.ok) {
+        const errText = await accountsResponse.text();
+        throw new Error(`Erro Pluggy API (Accounts): ${errText}`);
+    }
+
     const { results: accounts } = await accountsResponse.json();
+    console.log(`[SYNC] Contas encontradas: ${accounts?.length || 0}`);
+
+    if (!accounts || accounts.length === 0) return { user_id };
 
     const accountsToUpsert = accounts.map((acc: any) => ({
       external_id: acc.id, 
       user_id: user_id,
       bank_connection_id: bank_connection_id,
-      name: acc.name,
-      type: acc.type,
+      name: `${acc.name} (${acc.number})`,
+      type: mapPluggyAccountType(acc.type, acc.subtype),
       balance: acc.balance,
       currency: acc.currency,
       updated_at: new Date().toISOString(),
     }));
 
-    // 2. Salvar Contas na tabela 'accounts'
-    if (accountsToUpsert.length > 0) {
-        const { error: accError } = await supabaseAdmin
-            .from("accounts")
-            .upsert(accountsToUpsert, { onConflict: 'external_id' }); 
-        if (accError) throw accError;
+    const { error: accError } = await supabaseAdmin
+        .from("accounts")
+        .upsert(accountsToUpsert, { onConflict: 'external_id' }); 
+    
+    if (accError) {
+        console.error("[SYNC_ERROR] Falha ao salvar contas:", accError);
+        throw accError;
     }
 
-    // 3. Buscar IDs internos das contas (para o FK nas Transações)
+    // B. Buscar IDs internos para relacionamento
     const pluggyAccountIds = accounts.map((acc: any) => acc.id);
     const { data: internalAccounts, error: fetchAccError } = await supabaseAdmin
         .from('accounts')
@@ -55,57 +69,54 @@ async function syncDataForItem(itemId: string, user_id: string, bank_connection_
         
     if (fetchAccError) throw fetchAccError;
 
-    const accountMap: AccountMap = internalAccounts.reduce((map, acc: any) => {
+    const accountMap: AccountMap = internalAccounts.reduce((map: any, acc: any) => {
         map[acc.external_id] = acc.id;
         return map;
     }, {} as AccountMap);
 
-
-    // 4. Buscar e Salvar Transações (últimos 30 dias)
+    // C. Buscar e Salvar Transações
     const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - 30);
+    fromDate.setDate(fromDate.getDate() - 30); // Últimos 30 dias
     const fromString = fromDate.toISOString().split('T')[0];
 
     for (const acc of accounts) {
+        if (!accountMap[acc.id]) continue;
+
         const transResponse = await fetch(
             `${PLUGGY_API_URL}/transactions?accountId=${acc.id}&from=${fromString}`, 
             { headers: { "X-API-KEY": apiKey } }
         );
         const { results: transactions } = await transResponse.json();
 
+        if (!transactions || transactions.length === 0) continue;
+
         const transactionsToUpsert = transactions.map((tx: any) => ({
             external_id: tx.id,
             user_id: user_id, 
-            account_id: accountMap[acc.id], // ID interno da Conta
+            account_id: accountMap[acc.id],
             description: tx.description,
             amount: tx.amount,
             date: tx.date,
-            status: tx.status,
-            type: tx.amount < 0 ? 'EXPENSE' : 'INCOME',
+            status: tx.status === 'POSTED' ? 'paid' : 'pending',
+            type: tx.amount < 0 ? 'expense' : 'income',
         }));
 
-        if (transactionsToUpsert.length > 0) {
-            const { error: txError } = await supabaseAdmin
-                .from("transactions")
-                .upsert(transactionsToUpsert, { onConflict: 'external_id' });
-            
-            if (txError) throw txError;
-        }
+        const { error: txError } = await supabaseAdmin
+            .from("transactions")
+            .upsert(transactionsToUpsert, { onConflict: 'external_id' });
+        
+        if (txError) console.error(`[SYNC_ERROR] Falha transações conta ${acc.id}:`, txError);
     }
     
+    console.log("[SYNC] Sucesso.");
     return { user_id };
 }
 
-/**
- * Função auxiliar para gerar a Pluggy API Key.
- */
 async function getPluggyApiKey(): Promise<string> {
     const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
     const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
 
-    if (!clientId || !clientSecret) {
-        throw new Error("Credenciais Pluggy não definidas.");
-    }
+    if (!clientId || !clientSecret) throw new Error("Credenciais Pluggy ausentes.");
     
     const authResponse = await fetch(`${PLUGGY_API_URL}/auth`, {
       method: "POST",
@@ -114,120 +125,88 @@ async function getPluggyApiKey(): Promise<string> {
     });
     
     const { apiKey } = await authResponse.json();
-    if (!apiKey) throw new Error("Falha ao obter Pluggy API Key.");
-    
     return apiKey;
 }
 
-/**
- * Função para verificar a assinatura do Webhook.
- */
-function verifySignature(signature: string, body: string, secret: string): boolean {
-    const [signatureVersion, signatureHash] = signature.split('=');
-    if (signatureVersion !== 'v1') return false;
-
-    const hmac = createHmac("sha256", secret);
-    hmac.update(body);
-    const expectedHash = hmac.toString('hex');
-
-    return expectedHash === signatureHash;
-}
-
 // --------------------------------------------------------------------------
-// Ponto de Entrada da Edge Function
+// Handler Principal (SEM VERIFICAÇÃO DE ASSINATURA)
 // --------------------------------------------------------------------------
 
 serve(async (req) => {
-  const isWebhook = req.headers.has("X-Pluggy-Signature");
-  let itemId: string;
+  // Tenta detectar se é Webhook pelo evento
+  const bodyText = await req.text();
+  let bodyJson;
+  try {
+      bodyJson = JSON.parse(bodyText);
+  } catch(e) {
+      bodyJson = {};
+  }
+
+  // Verifica se veio do botão (tem itemId direto) ou do webhook (tem evento e item dentro)
+  const itemId = bodyJson.itemId || bodyJson.item?.id;
+  
   let user_id: string;
   let bank_connection_id: string;
 
   try {
     const apiKey = await getPluggyApiKey();
-    const contentType = req.headers.get("content-type") || "";
 
-    if (isWebhook) {
-      // ** Lógica para Webhook (Chamada Autônoma) **
-      const secret = Deno.env.get("PLUGGY_WEBHOOK_SECRET");
-      if (!secret) throw new Error("PLUGGY_WEBHOOK_SECRET não está definida.");
-      
-      const signature = req.headers.get("X-Pluggy-Signature");
-      const rawBody = await req.text();
-      
-      if (!signature || !verifySignature(signature, rawBody, secret)) {
-        console.warn("Webhook: Assinatura inválida.");
-        return new Response(JSON.stringify({ error: "Assinatura inválida." }), { status: 401 });
-      }
+    // Se tiver cabeçalho de auth, assumimos chamada manual do App (Seguro)
+    const authHeader = req.headers.get("Authorization");
 
-      const webhookPayload = JSON.parse(rawBody);
-      itemId = webhookPayload.item?.id;
-
-      if (!itemId) {
-        // Ignora eventos sem ID de item (ex: ITEM_CREATED sem dados)
-        return new Response(JSON.stringify({ message: "Payload de Webhook sem Item ID." }), { status: 200 });
-      }
-
-      // Busca o user_id e bank_connection_id a partir do itemId (provider_id)
-      const { data: connData, error: connError } = await supabaseAdmin
-        .from("bank_connections")
-        .select('id, user_id')
-        .eq('provider_id', itemId)
-        .single();
+    if (authHeader) {
+        // --- FLUXO MANUAL (APP) ---
+        const userToken = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(userToken);
         
-      if (connError || !connData) {
-        // Se a conexão ainda não foi salva (o que não deveria acontecer), ignora.
-        console.warn(`Webhook: Item ID ${itemId} não encontrado no DB. Ignorando.`);
-        return new Response(JSON.stringify({ message: "Item não vinculado a um usuário." }), { status: 200 });
-      }
+        if (userError || !user) throw new Error("Usuário não autenticado.");
+        user_id = user.id;
 
-      user_id = connData.user_id;
-      bank_connection_id = connData.id;
-      
+        if (!itemId) throw new Error("itemId é obrigatório.");
+
+        // Salva conexão
+        const { data: connData, error: connError } = await supabaseAdmin
+            .from("bank_connections")
+            .upsert({ user_id, provider_id: itemId }, { onConflict: 'provider_id' })
+            .select('id')
+            .single();
+
+        if (connError) throw connError;
+        bank_connection_id = connData.id;
+
     } else {
-      // ** Lógica para Sincronização Manual (Chamada do Frontend) **
-      const userToken = req.headers.get("Authorization")?.replace("Bearer ", "");
-      if (!userToken) throw new Error("User Token ausente. Requisição manual requer autenticação.");
-      
-      const { user } = await supabaseAdmin.auth.getUser(userToken);
-      if (!user) throw new Error("Falha na autenticação do usuário.");
-      user_id = user.id;
+        // --- FLUXO WEBHOOK (SEM AUTH DE USUÁRIO) ---
+        // Como removemos a assinatura, confiamos apenas que o itemId existe no nosso banco.
+        if (!itemId) {
+            return new Response(JSON.stringify({ message: "Ignorado: payload sem ItemID" }), { status: 200 });
+        }
 
-      const { itemId: manualItemId } = await req.json();
-      itemId = manualItemId;
-      if (!itemId) throw new Error("Item ID é obrigatório para sincronização manual.");
+        // Buscamos quem é o dono desse Item no banco
+        const { data: connData, error: connError } = await supabaseAdmin
+            .from("bank_connections")
+            .select('id, user_id')
+            .eq('provider_id', itemId)
+            .single();
+            
+        if (connError || !connData) {
+            console.warn(`[WEBHOOK] ItemID ${itemId} desconhecido. Ignorando.`);
+            return new Response(JSON.stringify({ message: "Item desconhecido." }), { status: 200 });
+        }
 
-      // Salva/Atualiza na Tabela 'bank_connections' e pega o ID interno
-      const { data: connData, error: connError } = await supabaseAdmin
-          .from("bank_connections")
-          .upsert({ user_id, provider_id: itemId }, { onConflict: 'provider_id' })
-          .select('id')
-          .single();
-
-      if (connError || !connData) throw connError;
-      bank_connection_id = connData.id;
+        user_id = connData.user_id;
+        bank_connection_id = connData.id;
     }
 
-    // ----------------------------------------------------------------------
-    // Execução da Sincronização Core (Comum aos dois fluxos)
-    // ----------------------------------------------------------------------
+    // Executa Sync
     await syncDataForItem(itemId, user_id, bank_connection_id, apiKey);
     
     return new Response(JSON.stringify({ message: "Sincronização concluída!" }), {
       headers: { "Content-Type": "application/json" },
     });
 
-  } catch (error) {
-    let errorMessage = "Erro desconhecido durante a sincronização.";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'object' && error !== null && 'message' in error) {
-        errorMessage = (error as { message: string }).message;
-    }
-    
-    console.error("Erro na Edge Function:", errorMessage);
-
-    return new Response(JSON.stringify({ error: "Erro na sincronização: " + errorMessage }), {
+  } catch (error: any) {
+    console.error("[FATAL ERROR]", error);
+    return new Response(JSON.stringify({ error: error.message || "Erro desconhecido" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

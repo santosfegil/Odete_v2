@@ -26,9 +26,11 @@ export const MonthlyInvestmentCard: React.FC<MonthlyInvestmentCardProps> = ({
         
         {/* 1 e 2: Botões Chat e Engrenagem no topo */}
         <div className="flex gap-1">
+
+          {/* escondido por enquanto
           <button className="p-2 rounded-full hover:bg-emerald-200/50 dark:hover:bg-emerald-800/50 text-stone-600 dark:text-stone-300 transition-colors">
             <MessageCircle size={20} />
-          </button>
+          </button>*/}
           <button className="p-2 rounded-full hover:bg-emerald-200/50 dark:hover:bg-emerald-800/50 text-stone-600 dark:text-stone-300 transition-colors">
             <Settings size={20} />
           </button>

@@ -30,13 +30,13 @@ export const ChallengeCard: React.FC<ChallengeCardProps> = ({ data, onEdit }) =>
             {data.title}
           </h3>
         </div>
-        
+        {/* Botão conversar com odete escondido 
         <button 
           onClick={onEdit}
           className="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:text-stone-500 dark:hover:text-stone-300 dark:hover:bg-stone-800 rounded-full transition-colors"
         >
           <MessageCircle size={20} />
-        </button>
+        </button>*/}
       </div>
 
       {/* Valores Principais (Card Grande) */}

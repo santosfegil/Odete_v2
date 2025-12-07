@@ -225,10 +225,10 @@ export default function RetirementSimulator() {
     <div className="bg-[#F2F7FF] dark:bg-stone-900 rounded-[2.5rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden transition-all">
       
       <h2 className="text-lg font-bold text-stone-900 dark:text-white mb-1">Aposentadoria</h2>
-      {/* Botão Configurações */}
+      {/* Botão Chat escondido por enquanto 
       <div className="absolute top-6 right-6 text-stone-300">
         <MessageCircle size={20} />
-      </div>
+      </div>*/}
 
       {/* --- ÁREA DE DESTAQUE (Dados Salvos/Display) --- */}
       <div className="text-center mt-4 mb-8">

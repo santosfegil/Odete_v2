@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import TabBar from './components/TabBar';
 import HomeScreen from './screens/HomeScreen';
-import ChatScreen from './screens/ChatScreen'; // A importação correta já estava aqui
+import ChatScreen from './screens/ChatScreen'; 
 import WalletScreen from './screens/WalletScreen';
 import AllGoalsScreen from './screens/AllGoalsScreen';
 import AllMedalsScreen from './screens/AllMedalsScreen';
@@ -14,7 +14,7 @@ import BudgetScreen from './screens/BudgetScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import type { Screen } from './types';
-// REMOVIDO: import { OdeteChatScreen } from './screens/ChatScreen';
+
 
 function App() {
   const { user, loading } = useAuth();
@@ -104,7 +104,7 @@ function App() {
               onShowBudget={() => setShowBudget(true)}
             />
           )}
-          {/* CORRIGIDO: Usando o componente ChatScreen importado corretamente */}
+          
           {activeTab === 'chat' && <ChatScreen onShowProfile={() => setShowProfile(true)} />}
               {activeTab === 'wallet' && (
             <WalletScreen

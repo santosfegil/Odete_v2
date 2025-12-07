@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import SpendingHistoryScreen from './SpendingHistoryScreen'; 
 // AQUI ESTAVA O ERRO: Importamos o componente real agora, não o Mock
 import RetirementSimulator from '../components/RetirementSimulatorMock';
+import { usePatrimony } from '../hooks/usePatrimony';
 
 interface HomeScreenProps {
   onShowProfile: () => void;
@@ -18,6 +19,8 @@ interface HomeScreenProps {
 export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<'gastos' | 'investimentos'>('gastos');
   const [showEditModal, setShowEditModal] = useState(false);
+  const { totals, accounts, refetch } = usePatrimony();
+const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Estado para controlar a exibição do histórico (navegação do card verde)
   const [showInvestmentHistory, setShowInvestmentHistory] = useState(false);
@@ -51,9 +54,9 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
         let totalInv = 0, totalEmerg = 0, totalChecking = 0, totalAssets = 0;
 
         accounts.forEach(acc => {
-          if (acc.name === 'Meus Investimentos' && acc.type === 'investment') totalInv += acc.balance;
-          else if (acc.name === 'Reserva de Emergência' && acc.type === 'investment') totalEmerg += acc.balance;
-          else if (acc.type === 'bank' || acc.type === 'wallet') totalChecking += acc.balance;
+          if ( acc.type === 'investment') totalInv += acc.balance;
+          else if ( acc.type === 'investment') totalEmerg += acc.balance;
+          else if (acc.type === 'bank' || acc.type === 'wallet'|| acc.type === 'checking_account' || acc.type === 'savings_account') totalChecking += acc.balance;
           else if (['real_estate', 'vehicle', 'other_asset'].includes(acc.type)) totalAssets += acc.balance;
         });
 
@@ -110,35 +113,33 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
           <>
             <FinanceCard onShowBudget={onShowBudget} />
             <div style={{ marginTop: '20px' }}> 
+              {/* 2. O CARD SÓ EXIBE OS TOTAIS E ABRE O MODAL */}
               <InvestmentCard
-                data={investmentData}
+                data={totals}
                 onEdit={() => setShowEditModal(true)}
               />
             </div>
           </>
         ) : (
           <div className="space-y-6">
-            
-            {/* Card de Investimento Mensal */}
             <MonthlyInvestmentCard 
               currentInvested={monthlyInvestmentData.current}
               monthlyGoal={monthlyInvestmentData.goal}
               monthName={capitalizedMonth}
               onShowHistory={() => setShowInvestmentHistory(true)}
             />
-
-            {/* Simulador Real Conectado ao Banco */}
             <RetirementSimulator />
-
           </div>
         )}
       </main>
 
+      {/* 3. MODAL ÚNICO AQUI EMBAIXO (COM OS DADOS CERTOS) */}
       {showEditModal && (
         <EditPatrimonyModal 
           onClose={() => setShowEditModal(false)} 
+          initialAccounts={accounts || []} // <--- ISSO EVITA A TELA BRANCA
           onSuccess={() => {
-            fetchPatrimony();
+            refetch(); // <--- ATUALIZA A TELA AO SALVAR
           }}
         />
       )}

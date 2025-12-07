@@ -27,10 +27,10 @@ export default function FinancialFreedomSection() {
       <div className="px-6 pt-6">
         <h2 className="text-lg font-bold text-stone-900 dark:text-white">Empréstimos e financiamentos</h2>
       </div>
-
+{/* Chat com odete escondido
       <button className="absolute top-6 right-6 p-2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors rounded-full hover:bg-stone-100/50 dark:hover:bg-stone-700/50">
         <MessageCircle size={20} />
-      </button>
+      </button>*/}
 
       {/* Header */}
       <div className="pt-8 pb-6 px-6 text-center">
