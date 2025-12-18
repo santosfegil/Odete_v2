@@ -1,263 +1,635 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Loader2, Minus, Plus, Home, ShoppingCart, Car, Heart, Coffee } from 'lucide-react';
-import { BudgetCategory } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  X, Plus, Search, Trash2, Home, ShoppingCart, Car, Heart, 
+  Music, GraduationCap, Plane, Dumbbell, Zap, Dog, Briefcase, 
+  TrendingUp, Gift, MoreHorizontal, Check, ArrowRight, ArrowLeft, 
+  CheckSquare, AlertTriangle, ShoppingBag, Loader2, Coffee 
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-// Tipos para controle de abas
-type BudgetTabType = 'variavel' | 'fixo';
-
-// Extensão local do tipo para incluir a lógica de visualização sem mexer no types.ts global
-interface ExtendedBudgetCategory extends BudgetCategory {
-    expenseType: 'fixo' | 'variavel';
+// --- TIPOS ---
+// Define exatamente o que esperamos da RPC, mas permite flexibilidade
+interface RPCReturnItem {
+  category_id: string;
+  category_name: string;
+  icon_key: string | null;
+  category_scope: string; 
+  budget_limit: number;
+  spent_amount: number;
 }
 
 interface BudgetModalProps {
   onClose: () => void;
   onSuccess: () => void;
-  currentDate: Date; 
+  currentDate: Date;
 }
 
-// Componente de Linha (Input de Orçamento)
-interface BudgetRowProps {
-    category: ExtendedBudgetCategory;
-    onBudgetChange: (id: string, newBudget: number) => void;
-}
-
-const BudgetRow: React.FC<BudgetRowProps> = ({ category, onBudgetChange }) => {
-    // Cálculo visual de status
-    const isOverBudget = category.remaining < 0;
-    const remainingText = isOverBudget ? 'Estourado por' : 'Restante:';
-    const remainingValue = Math.abs(category.remaining).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
-    // Helper simples para ícones
-    const getIcon = (name: string) => {
-        const n = name.toLowerCase();
-        if (n.includes('moradia') || n.includes('casa')) return <Home size={16} />;
-        if (n.includes('aliment') || n.includes('mercado')) return <ShoppingCart size={16} />;
-        if (n.includes('transporte') || n.includes('carro')) return <Car size={16} />;
-        if (n.includes('saúde') || n.includes('farmacia')) return <Heart size={16} />;
-        return <Coffee size={16} />;
-    };
-
-    return (
-        <div className="flex items-center justify-between bg-white dark:bg-stone-800 p-3 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-700">
-            {/* Esquerda: Ícone e Infos */}
-            <div className="flex items-center gap-3 flex-1 overflow-hidden mr-3">
-                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-700 dark:text-emerald-400 shrink-0">
-                    {getIcon(category.name)}
-                </div>
-                <div className="flex flex-col flex-1 truncate">
-                    <p className="font-bold text-stone-900 dark:text-white truncate text-sm">
-                        {category.name}
-                    </p>
-                    <p className={`text-xs font-medium ${isOverBudget ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                        {remainingText} R$ {remainingValue}
-                    </p>
-                </div>
-            </div>
-
-            {/* Direita: Input */}
-            <div className="relative w-28 shrink-0">
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 text-stone-400 text-xs font-bold">R$</span>
-                <input
-                    type="number"
-                    value={category.budget}
-                    onChange={(e) => onBudgetChange(category.id, parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className="w-full pl-6 py-1.5 bg-stone-50 dark:bg-stone-900 rounded-xl font-bold text-base text-right focus:ring-2 focus:ring-emerald-500 outline-none transition-all border-none dark:text-white"
-                />
-            </div>
-        </div>
-    );
+// --- 1. MAPEAMENTO DE ÍCONES (ICON MAP) ---
+const ICON_MAP: Record<string, React.ElementType> = {
+    'home': Home,
+    'food': ShoppingCart,
+    'shopping': ShoppingBag,
+    'car': Car,
+    'transport': Car,
+    'health': Heart,
+    'fun': Music,
+    'education': GraduationCap,
+    'travel': Plane,
+    'gym': Dumbbell,
+    'bill': Zap,
+    'pet': Dog,
+    'income': Briefcase,
+    'invest': TrendingUp,
+    'gift': Gift,
+    'other': MoreHorizontal,
 };
 
+// --- HELPER DE ÍCONES (Robustez para garantir que sempre apareça algo) ---
+const getIcon = (iconKey: string | null | undefined, categoryName: string, size = 24) => {
+    // 1. Tenta a chave exata do banco
+    if (iconKey && ICON_MAP[iconKey]) {
+        const Icon = ICON_MAP[iconKey];
+        return <Icon size={size} />;
+    }
+
+    // 2. Tenta adivinhar pelo nome (Fallback do seu código original)
+    const n = (categoryName || '').toLowerCase();
+    if (n.includes('moradia') || n.includes('aluguel') || n.includes('casa')) return <Home size={size} />;
+    if (n.includes('aliment') || n.includes('mercado') || n.includes('food')) return <ShoppingCart size={size} />;
+    if (n.includes('transporte') || n.includes('uber') || n.includes('carro')) return <Car size={size} />;
+    if (n.includes('saúde') || n.includes('farma') || n.includes('médico')) return <Heart size={size} />;
+    if (n.includes('luz') || n.includes('internet') || n.includes('conta')) return <Zap size={size} />;
+    if (n.includes('lazer') || n.includes('diversão')) return <Music size={size} />;
+    if (n.includes('educa') || n.includes('curso')) return <GraduationCap size={size} />;
+    if (n.includes('viagem')) return <Plane size={size} />;
+    if (n.includes('academia') || n.includes('gym')) return <Dumbbell size={size} />;
+    if (n.includes('invest')) return <TrendingUp size={size} />;
+    if (n.includes('salário') || n.includes('receita')) return <Briefcase size={size} />;
+
+    // 3. Genérico
+    return <MoreHorizontal size={size} />;
+};
+
+// Helper de Moeda
+const toMoney = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+
+export const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
+
 export const BudgetModal: React.FC<BudgetModalProps> = ({ onClose, onSuccess, currentDate }) => {
-    // AQUI ESTAVA O ERRO: Agora usamos o tipo estendido
-    const [categories, setCategories] = useState<ExtendedBudgetCategory[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [activeTab, setActiveTab] = useState<BudgetTabType>('variavel');
-    const [isFixedSectionOpen, setIsFixedSectionOpen] = useState(true); // Começa aberto para facilitar
+  // STATES
+  const [items, setItems] = useState<RPCReturnItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // UI STATES
+  const [step, setStep] = useState<0 | 1 | 2>(0); 
+  const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState(false);
+  const [itemToDeleteId, setItemToDeleteId] = useState<string | null>(null);
 
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-    const isCurrentMonth = new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === currentDate.getFullYear();
+  // WIZARD STATES
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tempValues, setTempValues] = useState<Record<string, number>>({});
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
-    const fetchBudgets = useCallback(async () => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase.rpc('get_budget_summary', {
-                p_month: currentMonth,
-                p_year: currentYear
-            });
+  // --- CARREGAMENTO DE DADOS ---
+  const fetchBudgets = async () => {
+    setLoading(true);
+    try {
+      console.log('--- Buscando dados do Orçamento ---');
+      const { data, error } = await supabase.rpc('get_budget_summary', {
+        p_month: currentDate.getMonth() + 1,
+        p_year: currentDate.getFullYear()
+      });
 
-            if (error) throw error;
+      if (error) throw error;
+      
+      console.log('Dados recebidos:', data); // Verifique isso no console do navegador
+      setItems(data || []);
+    } catch (err) {
+      console.error('Erro ao carregar orçamentos:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            // Mapeamento com lógica de classificação (Fixo vs Variável)
-            const mappedCategories: ExtendedBudgetCategory[] = (data || []).map((item: any) => {
-                const nameLower = (item.category_name || '').toLowerCase();
-                // Lógica simples para definir o que é fixo (ajuste conforme seus nomes de categoria)
-                const isFixed = nameLower.includes('moradia') || 
-                                nameLower.includes('aluguel') || 
-                                nameLower.includes('condomínio') ||
-                                nameLower.includes('internet') ||
-                                nameLower.includes('luz') ||
-                                nameLower.includes('assinatura');
+  useEffect(() => {
+    fetchBudgets();
+  }, [currentDate]);
 
-                return {
-                    id: item.category_id,
-                    name: item.category_name,
-                    icon: item.category_icon || 'category',
-                    budget: item.budget_limit || 0,
-                    spent: item.spent_amount || 0,
-                    remaining: (item.budget_limit || 0) - (item.spent_amount || 0),
-                    expenseType: isFixed ? 'fixo' : 'variavel' // Adiciona o campo que faltava
-                };
-            });
+  // --- FILTROS INTELIGENTES ---
+  
+  const activeItems = useMemo(() => 
+    items.filter(i => i.category_scope === activeTab && (i.budget_limit || 0) > 0),
+  [items, activeTab]);
 
-            setCategories(mappedCategories);
-        } catch (err) {
-            console.error('Erro ao carregar orçamentos:', err);
-        } finally {
-            setLoading(false);
-        }
-    }, [currentMonth, currentYear]);
+  // 2. Itens DISPONÍVEIS para adicionar
+  const availableToAdd = useMemo(() => 
+    items.filter(i => {
+      // Aqui usamos category_scope direto, sem precisar da função getCategoryType
+      const isCorrectType = i.category_scope === activeTab;
+      const noBudget = (!i.budget_limit || i.budget_limit === 0);
+      const matchesSearch = i.category_name.toLowerCase().includes(searchTerm.toLowerCase());
+      return isCorrectType && noBudget && matchesSearch;
+    }),
+  [items, searchTerm, activeTab]);
 
-    useEffect(() => {
-        fetchBudgets();
-    }, [fetchBudgets]);
+  // 3. Totais (Cabeçalho)
+  const totalIncome = useMemo(() => items.filter(c => c.category_scope === 'income').reduce((acc, c) => acc + (c.budget_limit || 0), 0), [items]);
+  const totalExpenses = useMemo(() => items.filter(c => c.category_scope === 'expense').reduce((acc, c) => acc + (c.budget_limit || 0), 0), [items]);const totalSaved = totalIncome - totalExpenses;
 
-    const handleBudgetChange = (id: string, newBudget: number) => {
-        setCategories((prev) =>
-            prev.map((cat) =>
-                cat.id === id
-                    ? { ...cat, budget: newBudget, remaining: newBudget - cat.spent }
-                    : cat
-            )
-        );
-    };
+  // Totais Projetados (Wizard)
+  const totalWizardInput = Object.values(tempValues).reduce((acc, v) => acc + v, 0);
+  const projectedIncome = activeTab === 'income' ? totalIncome + totalWizardInput : totalIncome;
+  const projectedExpenses = activeTab === 'expense' ? totalExpenses + totalWizardInput : totalExpenses;
+  const projectedSaved = projectedIncome - projectedExpenses;
 
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            const user = (await supabase.auth.getUser()).data.user;
-            if (!user) return;
+  // --- ACTIONS DATABASE ---
 
-            const budgetsToUpsert = categories.map(cat => ({
-                user_id: user.id,
-                category_id: cat.id,
-                amount_limit: cat.budget,
-                month: currentMonth,
-                year: currentYear
-            }));
-            
-            const { error } = await supabase.from('budgets').upsert(
-                budgetsToUpsert, 
-                { onConflict: 'user_id, category_id, month, year' }
-            );
+  const handleUpsertBudget = async (categoryId: string, amount: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-            if (error) throw error;
+      const { error } = await supabase.from('budgets').upsert({
+        user_id: user.id,
+        category_id: categoryId,
+        amount_limit: amount,
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear()
+      }, { onConflict: 'user_id, category_id, month, year' });
 
-            onSuccess();
-            onClose(); 
-        } catch (err) {
-            console.error('Erro ao salvar:', err);
-            alert('Erro ao salvar orçamento. Tente novamente.');
-        } finally {
-            setSaving(false);
-        }
-    };
+      if (error) throw error;
 
-    // Filtros usando useMemo para performance
-    const fixedCategories = useMemo(() => categories.filter(c => c.expenseType === 'fixo'), [categories]);
-    const variableCategories = useMemo(() => categories.filter(c => c.expenseType === 'variavel'), [categories]);
+      // Atualização Otimista local para não precisar recarregar tudo e piscar a tela
+      setItems(prev => prev.map(i => i.category_id === categoryId ? { ...i, budget_limit: amount } : i));
+      onSuccess(); 
+    } catch (err) {
+      console.error('Erro ao salvar:', err);
+    }
+  };
 
+  const executeDelete = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const idsToDelete = itemToDeleteId ? [itemToDeleteId] : selectedIds;
+
+      // Para "excluir" o orçamento, na verdade fazemos um upsert com valor 0 ou deletamos a row. 
+      // Deletar a row é mais limpo.
+      const { error } = await supabase.from('budgets').delete().in('category_id', idsToDelete).match({
+        user_id: user.id,
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear()
+      });
+
+      if (error) throw error;
+
+      setDeleteConfirmation(false);
+      setItemToDeleteId(null);
+      setSelectedIds([]);
+      setIsSelectionMode(false);
+      setEditingId(null);
+      fetchBudgets(); // Recarrega para garantir
+      onSuccess();
+    } catch (err) {
+      console.error('Erro ao excluir:', err);
+    }
+  };
+
+  const confirmAddWizard = async () => {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+  
+        const upsertData = selectedIds.map(catId => ({
+          user_id: user.id,
+          category_id: catId,
+          amount_limit: tempValues[catId] || 0,
+          month: currentDate.getMonth() + 1,
+          year: currentDate.getFullYear()
+        }));
+  
+        const { error } = await supabase.from('budgets').upsert(upsertData, { onConflict: 'user_id, category_id, month, year' });
+        if (error) throw error;
+  
+        setStep(0);
+        setSelectedIds([]);
+        setTempValues({});
+        
+        // ORDEM IMPORTANTE:
+        onSuccess(); // Atualiza os dados do pai
+        onClose();   // Fecha o modal explicitamente (só quando termina o wizard)
+        
+      } catch (err) {
+        console.error('Erro wizard:', err);
+      }
+   
+  };
+
+  // --- RENDER ---
+  const handleCardClick = (id: string) => {
+    if (editingId === id) return;
+    setEditingId(id);
+  };
+
+  const startAdd = () => {
+    setEditingId(null);
+    setSelectedIds([]);
+    setSearchTerm('');
+    setStep(1);
+  };
+
+  const toggleSelectWizard = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const goToValues = () => {
+    const init: Record<string, number> = {};
+    selectedIds.forEach(id => init[id] = 0);
+    setTempValues(init);
+    setStep(2);
+  };
+
+  const toggleSelectHome = (id: string) => {
+    if (!isSelectionMode) return;
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  if (loading && step === 0) {
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[50] p-4 transition-all animate-in fade-in duration-200">
-            <div className="bg-emerald-50 dark:bg-stone-900 w-full max-w-md rounded-[2rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/50 dark:border-stone-800">
-                
-                {/* Header */}
-                <div className="p-6 pb-2 flex justify-between items-center">
-                    <h3 className="text-xl font-extrabold text-stone-900 dark:text-white">
-                        Definir Orçamento
-                    </h3>
-                    <button 
-                        onClick={onClose} 
-                        className="p-2 bg-white dark:bg-stone-800 rounded-full hover:bg-stone-200 transition-colors"
-                    >
-                        <X size={20} className="text-stone-900 dark:text-white" />
-                    </button>
-                </div>
-
-                {/* Abas */}
-                <div className="px-6 py-4">
-                    <div className="flex bg-stone-200 dark:bg-stone-800 p-1 rounded-full relative">
-                        {(['variavel', 'fixo'] as BudgetTabType[]).map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`flex-1 py-2 rounded-full text-sm font-bold transition-all duration-200 z-10 ${
-                                    activeTab === tab ? 'bg-white text-black shadow-sm' : 'text-stone-500 hover:text-stone-700 dark:text-stone-400'
-                                }`}
-                            >
-                                {tab === 'fixo' ? 'Gastos Fixos' : 'Gastos Variáveis'}
-                            </button>
-                        ))}
-                    </div>
-                    <p className="text-center text-xs text-stone-500 dark:text-stone-400 pt-3 font-medium">
-                        Mês de referência: {currentDate.toLocaleString('pt-BR', { month: 'long' })}
-                    </p>
-                </div>
-
-                {/* Conteúdo */}
-                <div className="overflow-y-auto px-6 pb-4 space-y-4 custom-scrollbar flex-1">
-                    {loading ? (
-                         <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>
-                    ) : (
-                        <>
-                            {/* Aba Fixos (Com Acordeão opcional se quiser esconder na aba errada, mas aqui mostramos baseado na aba ativa ou agrupado) */}
-                            {/* Lógica pedida: Aba Variável mostra Variável. Aba Fixo mostra Fixo. 
-                                MAS você pediu uma seção de fixos fechada. Vamos adaptar: 
-                                Se estiver na aba "Fixo", mostra tudo de fixo.
-                                Se estiver na aba "Variável", mostra variável.
-                            */}
-                            
-                            {activeTab === 'fixo' && (
-                                <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
-                                    {fixedCategories.length === 0 && <p className="text-center text-stone-500 py-4">Nenhum gasto fixo identificado.</p>}
-                                    {fixedCategories.map(cat => (
-                                        <BudgetRow key={cat.id} category={cat} onBudgetChange={handleBudgetChange} />
-                                    ))}
-                                </div>
-                            )}
-
-                            {activeTab === 'variavel' && (
-                                <div className="space-y-3 animate-in slide-in-from-left-4 duration-300">
-                                     {/* Hack visual: Se quiser mostrar os fixos colapsados aqui também, descomente abaixo. 
-                                         Mas pelo seu pedido de "abas", separar é mais limpo. 
-                                         Vou manter separado por Abas para ficar igual ao Editar Patrimônio.
-                                     */}
-                                    {variableCategories.length === 0 && <p className="text-center text-stone-500 py-4">Nenhum gasto variável identificado.</p>}
-                                    {variableCategories.map(cat => (
-                                        <BudgetRow key={cat.id} category={cat} onBudgetChange={handleBudgetChange} />
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-6 bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving || loading}
-                        className="w-full bg-stone-900 dark:bg-emerald-600 text-white py-4 rounded-full font-bold text-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100 transition-all shadow-xl flex items-center justify-center gap-2"
-                    >
-                        {saving ? 'Salvando...' : 'Salvar Orçamento'}
-                    </button>
-                </div>
-            </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[50]">
+            <Loader2 className="animate-spin text-white" size={48} />
         </div>
     );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[50] p-4 font-sans text-stone-900" onClick={() => setEditingId(null)}>
+      <div 
+        className="bg-emerald-50 dark:bg-stone-900 w-full max-w-md rounded-[2rem] shadow-2xl flex flex-col h-[85vh] overflow-hidden border border-white/50 dark:border-stone-800 relative transition-all"
+        onClick={(e) => e.stopPropagation()} 
+      >
+        
+        {/* TELA 0: HOME */}
+        {step === 0 && (
+          <>
+            <div className="p-6 pb-2 bg-transparent dark:bg-stone-900 z-10" onClick={() => setEditingId(null)}>
+              <div className="flex justify-between items-center mb-4">
+                {isSelectionMode ? (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setIsSelectionMode(false); setSelectedIds([]) }} className="text-stone-500 font-bold text-sm">Cancelar</button>
+                    <span className="font-bold dark:text-white text-red-500">{selectedIds.length} para excluir</span>
+                  </div>
+                ) : (
+                  <h3 className="text-2xl font-extrabold text-stone-900 dark:text-white">Orçamento</h3>
+                )}
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setIsSelectionMode(!isSelectionMode);
+                      setSelectedIds([]);
+                      setEditingId(null);
+                    }}
+                    className={`p-2 rounded-full transition-colors ${isSelectionMode ? 'bg-red-100 text-red-600' : 'bg-white dark:bg-stone-800 text-stone-500 hover:bg-stone-200'}`}
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                  <button onClick={onClose} className="p-2 bg-white dark:bg-stone-800 rounded-full hover:bg-stone-200"><X size={20} /></button>
+                </div>
+              </div>
+
+              {!isSelectionMode && (
+                <div className="flex justify-between items-center bg-white dark:bg-stone-800 p-4 rounded-2xl mb-4 shadow-sm">
+                  <div className="text-center flex-1">
+                    <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Receita esperada</p>
+                    <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{toMoney(totalIncome)}</p>
+                  </div>
+                  <div className="h-8 w-px bg-stone-200 dark:bg-stone-700"></div>
+                  <div className="text-center flex-1">
+                    <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Gasto esperado</p>
+                    <p className="text-sm font-extrabold text-stone-900 dark:text-white">{toMoney(totalExpenses)}</p>
+                  </div>
+                  <div className="h-8 w-px bg-stone-200 dark:bg-stone-700"></div>
+                  <div className="text-center flex-1">
+                    <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Economia esperada</p>
+                    <p className={`text-sm font-extrabold ${totalSaved >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                      {toMoney(totalSaved)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!isSelectionMode && (
+                <div className="flex bg-stone-200/50 dark:bg-stone-800 p-1 rounded-2xl">
+                  <button onClick={() => {setActiveTab('expense'); setEditingId(null)}} className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'expense' ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' : 'text-stone-400'}`}>
+                    Despesas
+                  </button>
+                  <button onClick={() => {setActiveTab('income'); setEditingId(null)}} className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'income' ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' : 'text-stone-400'}`}>
+                    Receitas
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-24 custom-scrollbar" onClick={() => setEditingId(null)}>
+              <div className="grid grid-cols-3 gap-2">
+                
+                {/* Botão Adicionar */}
+                {!isSelectionMode && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); startAdd(); }}
+                    className="aspect-square rounded-2xl border-2 border-dashed border-emerald-300 dark:border-stone-700 flex flex-col items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/20 transition-all group"
+                  >
+                    <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/50 group-hover:scale-110 transition-transform text-emerald-600">
+                      <Plus size={20} />
+                    </div>
+                    <span className="text-[10px] font-bold">Adicionar</span>
+                  </button>
+                )}
+
+                {/* Cards Ativos */}
+                {activeItems.map(item => {
+                  const isEditing = editingId === item.category_id;
+                  const isSelected = selectedIds.includes(item.category_id);
+                  const budget = item.budget_limit || 0;
+                  const spent = item.spent_amount || 0;
+                  const isOver = spent > budget;
+                  const progress = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+                  
+                  // Tenta pegar chave do ícone de várias formas
+                  const iconKey = item.icon_key || item.category_icon; 
+
+                  return (
+                    <div 
+                      key={item.category_id}
+                      onClick={(e) => { e.stopPropagation(); isSelectionMode ? toggleSelectHome(item.category_id) : handleCardClick(item.category_id); }}
+                      className={`
+                        relative flex flex-col justify-between p-3 rounded-2xl text-left transition-all duration-200 border aspect-square cursor-pointer
+                        ${isEditing 
+                          ? 'bg-white dark:bg-stone-800 ring-2 ring-emerald-500 shadow-lg scale-105 z-10' 
+                          : 'bg-white dark:bg-stone-800 border-transparent shadow-sm hover:scale-[1.02]'
+                        }
+                        ${isSelected && isSelectionMode ? 'ring-2 ring-red-500 bg-red-50 dark:bg-red-900/20' : ''}
+                      `}
+                    >
+                      <div className="flex justify-between items-start w-full">
+                        <div className={`p-2 rounded-xl ${isSelected ? 'bg-white/50 text-red-500' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                          {getIcon(iconKey, item.category_name, 16)}
+                        </div>
+                        
+                        {isSelectionMode && (
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'bg-red-500 border-red-500' : 'border-stone-200 bg-white'}`}>
+                            {isSelected && <Trash2 size={12} className="text-white" />}
+                          </div>
+                        )}
+
+                        {isEditing && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setItemToDeleteId(item.category_id); setDeleteConfirmation(true); }}
+                            className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="w-full">
+                        <span className="block font-bold text-stone-900 dark:text-white text-xs truncate mb-1">{item.category_name}</span>
+                        
+                        {isEditing ? (
+                          <div className="relative animate-in fade-in duration-200">
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-400">R$</span>
+                            <input 
+                              type="number"
+                              autoFocus
+                              defaultValue={budget}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleUpsertBudget(item.category_id, parseFloat(e.currentTarget.value) || 0);
+                                    setEditingId(null);
+                                }
+                              }}
+                              onBlur={(e) => handleUpsertBudget(item.category_id, parseFloat(e.target.value) || 0)}
+                              className="w-full bg-stone-50 dark:bg-stone-900 pl-4 py-1 rounded-md text-xs font-bold text-stone-900 dark:text-white outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="h-1 w-full bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden mb-1">
+                              <div 
+                                className={`h-full rounded-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <div className="text-[9px] text-stone-400 font-medium truncate flex justify-between items-center">
+                            <span>
+  <span className={isOver ? 'text-red-500 font-bold' : ''}>
+    {/* Converte para número e formata BRL */}
+    {Number(spent).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+  </span>
+  {' / '}
+  {/* Faz o mesmo para o budget para ficar padronizado */}
+  {Number(budget).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {isSelectionMode && selectedIds.length > 0 && (
+              <div className="absolute bottom-6 left-6 right-6 animate-in slide-in-from-bottom-4">
+                <button 
+                  onClick={() => { setItemToDeleteId(null); setDeleteConfirmation(true); }}
+                  className="w-full bg-red-500 text-white py-4 rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2 hover:bg-red-600 transition-colors"
+                >
+                  <Trash2 size={20} /> Excluir {selectedIds.length}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* TELA 1: SELEÇÃO ÍCONES (WIZARD) */}
+        {step === 1 && (
+          <div className="flex flex-col h-full bg-emerald-50 dark:bg-stone-900 animate-in slide-in-from-right duration-300">
+            <div className="p-6 pb-2 flex items-center gap-3">
+              <button onClick={() => setStep(0)} className="p-2 bg-white hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-full transition-colors"><ArrowLeft size={24} className="text-stone-600 dark:text-white" /></button>
+              <div>
+                <h3 className="text-xl font-extrabold text-stone-900 dark:text-white">Adicionar</h3>
+                <p className="text-xs text-stone-500">Selecione as categorias</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4">
+              <div className="flex items-center gap-3 bg-white dark:bg-stone-800 p-3 rounded-2xl shadow-sm">
+                <Search className="text-stone-400" size={20} />
+                <input 
+                  autoFocus
+                  placeholder="Buscar..."
+                  className="flex-1 bg-transparent font-bold text-stone-900 dark:text-white outline-none placeholder:font-medium placeholder:text-stone-400"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-24 custom-scrollbar">
+              <div className="grid grid-cols-3 gap-2">
+                {availableToAdd.length === 0 && (
+                     <div className="col-span-3 text-center py-10 text-stone-400 text-xs">
+                        Nenhuma categoria disponível encontrada.
+                     </div>
+                )}
+                {availableToAdd.map(item => {
+                  const isSelected = selectedIds.includes(item.category_id);
+                  const iconKey = item.icon_key || item.category_icon;
+
+                  return (
+                    <button 
+                      key={item.category_id}
+                      onClick={() => toggleSelectWizard(item.category_id)}
+                      className={`
+                        flex flex-col items-center justify-center p-3 rounded-2xl aspect-square transition-all duration-200 border
+                        ${isSelected 
+                          ? 'bg-stone-900 dark:bg-emerald-600 text-white transform scale-95 shadow-lg border-transparent' 
+                          : 'bg-white dark:bg-stone-800 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 shadow-sm border-transparent'
+                        }
+                      `}
+                    >
+                      <div className={`mb-2 p-2 rounded-full ${isSelected ? 'bg-white/20' : 'bg-stone-100 dark:bg-stone-900 text-emerald-600 dark:text-emerald-400'}`}>
+                        {getIcon(iconKey, item.category_name, 20)}
+                      </div>
+                      <span className="text-[10px] font-bold text-center truncate w-full">{item.category_name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="absolute bottom-6 left-6 right-6">
+              <button 
+                onClick={goToValues}
+                disabled={selectedIds.length === 0}
+                className="w-full bg-stone-900 dark:bg-emerald-600 text-white py-4 rounded-2xl font-bold text-lg shadow-2xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-0 disabled:translate-y-10 transition-all flex items-center justify-center gap-2"
+              >
+                Continuar ({selectedIds.length}) <ArrowRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TELA 2: VALORES (WIZARD) */}
+        {step === 2 && (
+          <div className="flex flex-col h-full bg-emerald-50 dark:bg-stone-900 animate-in slide-in-from-right duration-300">
+            <div className="p-6 bg-transparent dark:bg-stone-800 rounded-b-[2rem] z-10">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setStep(1)} className="p-2 bg-white hover:bg-stone-100 dark:bg-stone-800 dark:hover:bg-stone-700 rounded-full transition-colors"><ArrowLeft size={24} className="text-stone-600 dark:text-white" /></button>
+                  <h3 className="text-xl font-extrabold text-stone-900 dark:text-white">Valores</h3>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-white dark:bg-stone-900 p-4 rounded-2xl shadow-sm">
+                <div className="text-center flex-1">
+                  <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Receita esperado</p>
+                  <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{toMoney(projectedIncome)}</p>
+                </div>
+                <div className="h-8 w-px bg-stone-200 dark:bg-stone-700"></div>
+                <div className="text-center flex-1">
+                  <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Gasto esperado</p>
+                  <p className="text-sm font-extrabold text-stone-900 dark:text-white">{toMoney(projectedExpenses)}</p>
+                </div>
+                <div className="h-8 w-px bg-stone-200 dark:bg-stone-700"></div>
+                <div className="text-center flex-1">
+                  <p className="text-[10px]  font-bold text-stone-500 mb-1 tracking-wider">Economia esperada</p>
+                  <p className={`text-sm font-extrabold ${projectedSaved >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                    {toMoney(projectedSaved)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
+              <div className="grid grid-cols-3 gap-2">
+                {selectedIds.map((catId, idx) => {
+                  const item = items.find(i => i.category_id === catId);
+                  const name = item?.category_name || '';
+                  const iconKey = item?.icon_key || item?.category_icon;
+
+                  return (
+                    <div key={catId} className="bg-white dark:bg-stone-800 p-3 rounded-2xl shadow-sm flex flex-col justify-between aspect-square animate-in slide-in-from-bottom-4 fill-mode-both" style={{ animationDelay: `${idx * 50}ms` }}>
+                      <div className="flex justify-between items-start w-full">
+                        <div className="p-2 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          {getIcon(iconKey, name, 16)}
+                        </div>
+                      </div>
+                      
+                      <div className="w-full">
+                        <span className="block font-bold text-stone-900 dark:text-white text-[10px] mb-1 truncate">{name}</span>
+                        <div className="relative">
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-400">R$</span>
+                          <input 
+                            type="number"
+                            autoFocus={idx === 0}
+                            placeholder="0"
+                            value={tempValues[catId] || ''}
+                            onChange={e => setTempValues(prev => ({...prev, [catId]: parseFloat(e.target.value) || 0}))}
+                            className="w-full bg-transparent border-b border-stone-200 dark:border-stone-700 pl-4 py-0 text-xs font-bold text-stone-900 dark:text-white outline-none focus:border-emerald-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-6 bg-transparent">
+              <button 
+                onClick={confirmAddWizard}
+                className="w-full bg-stone-900 dark:bg-emerald-600 text-white py-4 rounded-2xl font-bold text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                <Check size={20} /> Concluir
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL CONFIRMAÇÃO DELETAR */}
+        {deleteConfirmation && (
+          <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/50 p-6 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-stone-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center space-y-4 border border-stone-200 dark:border-stone-800">
+              <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600"><AlertTriangle size={24} /></div>
+              <div>
+                <h3 className="text-xl font-bold text-stone-900 dark:text-white">Excluir?</h3>
+                <p className="text-sm text-stone-500 dark:text-stone-400 mt-2">
+                  {itemToDeleteId ? "Remover item do orçamento?" : `Remover limite de ${selectedIds.length} categorias?`}
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => { setDeleteConfirmation(false); setItemToDeleteId(null); }} className="flex-1 py-3 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold rounded-xl hover:bg-stone-200 transition-colors">Cancelar</button>
+                <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors shadow-lg">Excluir</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };

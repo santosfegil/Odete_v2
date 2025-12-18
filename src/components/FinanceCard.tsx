@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, Calendar, Settings } from 'lucide-react';
+import { ArrowRight,ChevronLeft, ChevronRight, Loader2, Calendar, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DashboardData } from '../types';
 import { BudgetModal } from './BudgetModal';
@@ -9,6 +9,15 @@ export const FinanceCard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+
+
+  interface DashboardData {
+    budget: number;
+    income: number;
+    spent: number;
+    owed: number;
+    invested: number;
+  }
 
   const today = new Date();
   const isCurrentMonth = 
@@ -73,6 +82,19 @@ export const FinanceCard: React.FC = () => {
     <>
       <div className="rounded-3xl bg-emerald-100 dark:bg-emerald-900/40 p-6 text-stone-900 dark:text-stone-100 shadow-lg transition-all min-h-[440px] flex flex-col justify-between relative">
         
+
+      <div className="flex items-center justify-between mb-4">
+  <h2 className="text-lg font-bold text-stone-900 dark:text-white">
+    Orçamento
+  </h2>
+  
+  <button
+    className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
+  >
+    Ver gastos
+    <ArrowRight size={12} className="ml-1" />
+  </button>
+</div>
         {/* Cabeçalho */}
         <div>
           <div className="grid grid-cols-3 items-center mb-1 relative">
@@ -136,7 +158,7 @@ export const FinanceCard: React.FC = () => {
                 {toMoney(available)}
               </p>
               <p className="mt-2 text-xs font-medium text-stone-500 dark:text-stone-400 max-w-[220px] mx-auto leading-relaxed">
-                disponíveis dos <strong> {toMoney(data?.budget || 0)}</strong> de orçamento
+                disponíveis dos <strong> {toMoney(data?.budget || 0)}</strong> de gasto esperado
               </p>
             </div>
 
@@ -220,7 +242,6 @@ export const FinanceCard: React.FC = () => {
         <BudgetModal
           onClose={() => setShowBudgetModal(false)}
           onSuccess={() => {
-            setShowBudgetModal(false);
             loadData(); // Atualiza os dados do card após salvar
           }}
           currentDate={currentDate}
