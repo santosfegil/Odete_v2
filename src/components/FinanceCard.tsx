@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowRight,ChevronLeft, ChevronRight, Loader2, Calendar, Settings } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Calendar, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DashboardData } from '../types';
 import { BudgetModal } from './BudgetModal';
+import TransactionsScreen from '../screens/TransactionScreen'; 
 
 export const FinanceCard: React.FC = () => {
+  console.log('🔵 FinanceCard renderizou');
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showTransactionsScreen, setShowTransactionsScreen] = useState(false);
 
+  console.log('🟢 Estado showTransactionsScreen:', showTransactionsScreen);
 
   interface DashboardData {
     budget: number;
@@ -57,7 +62,15 @@ export const FinanceCard: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Cálculos
+  // ✅ RENDERIZAÇÃO CONDICIONAL
+  if (showTransactionsScreen) {
+    console.log('🟡 DEVERIA MOSTRAR TransactionsScreen');
+    return <TransactionsScreen onBack={() => {
+      console.log('🔴 Clicou em VOLTAR');
+      setShowTransactionsScreen(false);
+    }} />;
+  }
+
   const year = currentDate.getFullYear();
   const monthIndex = currentDate.getMonth();
   const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -65,7 +78,6 @@ export const FinanceCard: React.FC = () => {
   const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
   const daysLeft = isCurrentMonth ? Math.max(0, lastDayOfMonth - today.getDate()) : 0;
 
-  // Lógica Financeira
   const totalOutflows = (data?.spent || 0) + (data?.owed || 0) + (data?.invested || 0);
   const available = Math.max(0, (data?.budget || 0) - totalOutflows);
   const dailyAvailable = daysLeft > 0 ? available / daysLeft : 0;
@@ -78,23 +90,36 @@ export const FinanceCard: React.FC = () => {
   const toMoney = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const hasData = (data?.budget || 0) > 0 || (data?.income || 0) > 0 || totalOutflows > 0;
 
+  const handleVerGastosClick = () => {
+    console.log('🚀 CLICOU EM VER GASTOS!');
+    console.log('🚀 Estado ANTES:', showTransactionsScreen);
+    setShowTransactionsScreen(true);
+    console.log('🚀 setShowTransactionsScreen(true) foi chamado');
+  };
+
+  console.log('🟣 Vai renderizar o card normal');
+
   return (
     <>
       <div className="rounded-3xl bg-emerald-100 dark:bg-emerald-900/40 p-6 text-stone-900 dark:text-stone-100 shadow-lg transition-all min-h-[440px] flex flex-col justify-between relative">
         
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-stone-900 dark:text-white">
+            Orçamento
+          </h2>
+          
+          <button
+            onClick={handleVerGastosClick}
+            onMouseDown={() => console.log('⚡ MouseDown no botão')}
+            onMouseUp={() => console.log('⚡ MouseUp no botão')}
+            className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
+            style={{ zIndex: 9999, position: 'relative' }}
+          >
+            Ver gastos
+            <ArrowRight size={12} className="ml-1" />
+          </button>
+        </div>
 
-      <div className="flex items-center justify-between mb-4">
-  <h2 className="text-lg font-bold text-stone-900 dark:text-white">
-    Orçamento
-  </h2>
-  
-  <button
-    className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
-  >
-    Ver gastos
-    <ArrowRight size={12} className="ml-1" />
-  </button>
-</div>
         {/* Cabeçalho */}
         <div>
           <div className="grid grid-cols-3 items-center mb-1 relative">
@@ -103,7 +128,7 @@ export const FinanceCard: React.FC = () => {
             <div className="justify-self-start flex flex-col">
               {!isCurrentMonth && (
                 <button 
-                  onClick={handleBackToCurrent} // CORRIGIDO: Volta a data, não abre modal
+                  onClick={handleBackToCurrent}
                   className="flex items-center gap-1 p-1.5 bg-white/50 dark:bg-black/20 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-white/80 transition-all"
                   title="Voltar para hoje"
                 >
@@ -128,10 +153,10 @@ export const FinanceCard: React.FC = () => {
               </button>
             </div>
 
-            {/* Direita: Configurações (Abre Modal) */}
+            {/* Direita: Configurações */}
             <div className="justify-self-end flex items-center gap-1">
               <button 
-                onClick={() => setShowBudgetModal(true)} // CORRIGIDO: Agora abre o modal certo
+                onClick={() => setShowBudgetModal(true)}
                 className="p-2 text-stone-500 rounded-full dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-colors"
               >
                 <Settings className="w-5 h-5" />
@@ -242,7 +267,7 @@ export const FinanceCard: React.FC = () => {
         <BudgetModal
           onClose={() => setShowBudgetModal(false)}
           onSuccess={() => {
-            loadData(); // Atualiza os dados do card após salvar
+            loadData();
           }}
           currentDate={currentDate}
         />
