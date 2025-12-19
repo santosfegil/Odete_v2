@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MessageCircle, CalendarDays, CircleDollarSign, PiggyBank, 
+  Settings,MessageCircle, CalendarDays, CircleDollarSign, PiggyBank, 
   Save, ArrowUpCircle, CheckCircle2, AlertCircle, Loader2, Lock 
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -225,6 +225,14 @@ export default function RetirementSimulator() {
     <div className="bg-[#F2F7FF] dark:bg-stone-900 rounded-[2.5rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden transition-all">
       
       <h2 className="text-lg font-bold text-stone-900 dark:text-white mb-1">Aposentadoria</h2>
+
+      <div className="flex gap-1">
+
+        
+          <button className="absolute top-6 right-6 rounded-full hover:bg-emerald-200/50 text-stone-600 dark:text-stone-300  transition-colors">
+            <Settings size={20} />
+          </button>
+        </div>
       {/* Botão Chat escondido por enquanto 
       <div className="absolute top-6 right-6 text-stone-300">
         <MessageCircle size={20} />
@@ -310,6 +318,9 @@ export default function RetirementSimulator() {
                   <CalendarDays size={18} />
                 </div>
                 <span className="text-xs font-bold text-stone-500 dark:text-stone-400  tracking-wide">Aposentadoria</span>
+
+
+                
               </div>
               
               <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
