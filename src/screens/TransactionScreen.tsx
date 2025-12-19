@@ -64,10 +64,7 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
   const [showTagModal, setShowTagModal] = useState(false);
   const [globalTagInput, setGlobalTagInput] = useState('');
   
-  // Tags sugeridas
-  const [systemTags, setSystemTags] = useState([
-    'delivery', 'trabalho', 'viagem', 'assinatura', 'presente', 'saúde', 'casa', 'mercado', 'lazer'
-  ]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // --- LÓGICA DE DATA ---
   const today = new Date();
@@ -111,6 +108,31 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
     }
   }, [currentDate]);
 
+  const [systemTags, setSystemTags] = useState<string[]>([]);
+
+  // 2. Adicione esta função para buscar as tags "soltas" do banco
+  const fetchTags = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Busca na tabela 'tags' (ajuste o nome se sua tabela for diferente)
+      const { data, error } = await supabase.from('tags').select('name').eq('user_id', user.id);
+      
+      if (error) throw error;
+      if (data) setSystemTags(data.map((t: any) => t.name));
+    } catch (err) {
+      console.error('Erro tags:', err);
+    }
+  }, []);
+
+  // 3. Adicione fetchTags no useEffect
+  useEffect(() => { 
+    fetchTransactions(); 
+    fetchTags(); 
+  }, [fetchTransactions, fetchTags]);
+
+
   useEffect(() => { 
     fetchTransactions(); 
   }, [fetchTransactions]);
@@ -140,25 +162,29 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
 
   const filteredTransactions = useMemo(() => {
     let list = transactions;
+
+    // 1. NOVO: Filtro por Texto (Campo de Busca)
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      list = list.filter(t => 
+        t.description?.toLowerCase().includes(s) ||
+        t.category_name?.toLowerCase().includes(s) ||
+        t.account_name?.toLowerCase().includes(s) ||
+        t.amount.toString().includes(s)
+      );
+    }
     
-    // 1. Filtro Texto/Tag/Categoria
+    // 2. Filtro de Botões (MANTIDO ORIGINAL)
     if (activeFilter !== 'Todos') {
-        const filterClean = activeFilter.replace('#', '').toLowerCase();
-        list = list.filter(t => {
-            if (t.tags?.includes(filterClean)) return true;
-            if (t.category_name?.toLowerCase() === filterClean) return true;
-            if (t.account_name?.toLowerCase().includes(filterClean)) return true;
-            return false;
-        });
+        const f = activeFilter.replace('#', '').toLowerCase();
+        list = list.filter(t => t.tags?.includes(f) || t.category_name?.toLowerCase() === f || t.account_name?.toLowerCase().includes(f));
     }
 
-    // 2. Filtro Status
-    if (statusFilter !== 'all') {
-        list = list.filter(t => t.status === statusFilter);
-    }
+    // 3. Filtro de Status (MANTIDO ORIGINAL)
+    if (statusFilter !== 'all') list = list.filter(t => t.status === statusFilter);
     
     return list;
-  }, [activeFilter, statusFilter, transactions]);
+  }, [activeFilter, statusFilter, transactions, searchTerm]); // Adicionado searchTerm nas dependências
 
   const totals = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => {
@@ -172,12 +198,23 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
     }, { total: 0, pending: 0, paid: 0 });
   }, [filteredTransactions]);
 
+  
+
   // --- AÇÕES ---
-  const addNewGlobalTag = () => {
+  const addNewGlobalTag = async () => {
     const val = globalTagInput.toLowerCase().trim();
+    
+    // Verifica na 'allKnownTags' para evitar duplicatas visuais
     if (val && !allKnownTags.includes(val)) {
+      // 1. Atualiza visualmente na hora (Otimista)
       setSystemTags(prev => [...prev, val]);
       setGlobalTagInput('');
+
+      // 2. Salva no banco
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('tags').insert([{ name: val, user_id: user.id }]);
+      }
     }
   };
 
@@ -237,7 +274,7 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
       <div className="w-full h-full sm:h-[800px] sm:max-w-md bg-stone-50 sm:rounded-[2.5rem] shadow-2xl overflow-hidden relative border-0 sm:border-[6px] border-stone-900/20 flex flex-col">
         
         {/* CABEÇALHO */}
-        <div className="bg-white/90 backdrop-blur-xl z-20 px-6 pt-12 pb-4 border-b border-stone-100 sticky top-0">
+        <div className="bg-white/90 backdrop-blur-xl z-20 px-6 pt-10 pb-4 border-b border-stone-100 sticky top-0">
           
           {/* Navegação */}
           <div className="flex justify-between items-center mb-6">
@@ -301,20 +338,28 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
             {activeFilter === 'Todos' && (
                 <div className="relative group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
-                <input type="text" placeholder="Buscar..." className="w-full bg-stone-100/50 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold placeholder:font-medium placeholder:text-stone-400 focus:bg-white transition-all outline-none"/>
+                <input type="text" placeholder="Buscar..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-stone-100/50 border-none rounded-2xl py-3.5 pl-11 pr-4 text-sm font-bold placeholder:font-medium placeholder:text-stone-400 focus:bg-white transition-all outline-none"/>
                 </div>
             )}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-6 px-6 scroll-smooth">
-              {['Todos', ...systemTags.slice(0, 5)].map(tag => {
-                const label = tag === 'Todos' ? tag : `#${tag}`;
-                const isActive = activeFilter === label || activeFilter === tag;
-                return (
-                    <button key={tag} onClick={() => setActiveFilter(isActive && tag !== 'Todos' ? 'Todos' : label)} className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${isActive ? 'bg-stone-900 text-white border-stone-900 shadow-lg transform scale-105' : 'bg-white text-stone-500 border-stone-200 hover:border-emerald-300 hover:text-emerald-600'}`}>
-                    {label}
-                    </button>
-                )
-              })}
-            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-6 px-6">
+  {/* CORREÇÃO: Usar 'allKnownTags' que junta as tags do sistema + tags das transações */}
+  {['Todos', ...allKnownTags].map(tag => (
+     <button 
+       key={tag} 
+       onClick={() => setActiveFilter(activeFilter === tag ? 'Todos' : tag)} 
+       className={`px-4 py-2 rounded-xl text-xs font-bold border whitespace-nowrap ${
+         activeFilter === tag 
+           ? 'bg-stone-900 text-white' 
+           : 'bg-white text-stone-500'
+       }`}
+     >
+       {tag}
+     </button>
+  ))}
+</div>
           </div>
         </div>
 
@@ -428,7 +473,7 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
                   <div className="mt-3 pt-3 border-t border-stone-200/50 animate-in fade-in"><p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Sparkles size={10} /> Sugestões encontradas</p><div className="flex flex-wrap gap-2">{globalTagSuggestions.map(tag => (<div key={tag} className="flex items-center gap-1 px-3 py-1.5 bg-white border border-stone-200 text-stone-500 rounded-lg text-xs font-bold shadow-sm"><span className="opacity-50">#</span>{tag}</div>))}</div></div>
                 )}
               </div>
-              <div className="mb-6 max-h-[300px] overflow-y-auto custom-scrollbar"><div className="flex flex-wrap gap-2">{systemTags.map(tag => (<div key={tag} className="flex items-center gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs font-bold text-stone-600 shadow-sm"><Tag size={12} className="text-stone-300" /><span>#{tag}</span></div>))}</div></div>
+              <div className="mb-6 max-h-[300px] overflow-y-auto custom-scrollbar"><div className="flex flex-wrap gap-2">{allKnownTags.map(tag => (<div key={tag} className="flex items-center gap-1 px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs font-bold text-stone-600 shadow-sm"><Tag size={12} className="text-stone-300" /><span>#{tag}</span></div>))}</div></div>
             </div>
           </div>
         )}

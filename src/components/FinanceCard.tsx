@@ -113,7 +113,7 @@ export const FinanceCard: React.FC = () => {
             onMouseDown={() => console.log('⚡ MouseDown no botão')}
             onMouseUp={() => console.log('⚡ MouseUp no botão')}
             className="bg-stone-900 dark:bg-stone-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-full flex items-center hover:bg-stone-800 transition-colors"
-            style={{ zIndex: 9999, position: 'relative' }}
+            //style={{ zIndex: 9999, position: 'relative' }}
           >
             Ver gastos
             <ArrowRight size={12} className="ml-1" />
