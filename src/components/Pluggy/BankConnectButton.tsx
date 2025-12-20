@@ -54,9 +54,8 @@ const BankConnectButton: React.FC<BankConnectButtonProps> = ({ userToken }) => {
   }, [userToken]);
 
   const handleSuccess = async (payload: any) => {
-    // ... (Mantenha sua lógica de sucesso original aqui)
-    // Vou resumir para focar na correção, mas pode colar seu código original aqui
-    console.log('Sucesso Pluggy:', payload);
+  
+   
     const itemId = payload.item?.id;
     if (!itemId || !userToken) return;
 

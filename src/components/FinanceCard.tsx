@@ -6,7 +6,7 @@ import { BudgetModal } from './BudgetModal';
 import TransactionsScreen from '../screens/TransactionScreen'; 
 
 export const FinanceCard: React.FC = () => {
-  console.log('🔵 FinanceCard renderizou');
+  
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState<DashboardData | null>(null);
@@ -14,7 +14,6 @@ export const FinanceCard: React.FC = () => {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showTransactionsScreen, setShowTransactionsScreen] = useState(false);
 
-  console.log('🟢 Estado showTransactionsScreen:', showTransactionsScreen);
 
   interface DashboardData {
     budget: number;
@@ -64,9 +63,8 @@ export const FinanceCard: React.FC = () => {
 
   // ✅ RENDERIZAÇÃO CONDICIONAL
   if (showTransactionsScreen) {
-    console.log('🟡 DEVERIA MOSTRAR TransactionsScreen');
     return <TransactionsScreen onBack={() => {
-      console.log('🔴 Clicou em VOLTAR');
+     
       setShowTransactionsScreen(false);
     }} />;
   }
@@ -91,13 +89,12 @@ export const FinanceCard: React.FC = () => {
   const hasData = (data?.budget || 0) > 0 || (data?.income || 0) > 0 || totalOutflows > 0;
 
   const handleVerGastosClick = () => {
-    console.log('🚀 CLICOU EM VER GASTOS!');
-    console.log('🚀 Estado ANTES:', showTransactionsScreen);
+ 
     setShowTransactionsScreen(true);
-    console.log('🚀 setShowTransactionsScreen(true) foi chamado');
+    
   };
 
-  console.log('🟣 Vai renderizar o card normal');
+  
 
   return (
     <>

@@ -23,7 +23,7 @@ function mapPluggyAccountType(pluggyType: string, pluggySubtype: string): string
 
 // 3. Função Core de Sincronização
 async function syncDataForItem(itemId: string, user_id: string, bank_connection_id: string, apiKey: string) {
-    console.log(`[SYNC] Iniciando. ItemID: ${itemId}, UserID: ${user_id}`);
+  
 
     // A. Buscar Contas
     const accountsResponse = await fetch(`${PLUGGY_API_URL}/accounts?itemId=${itemId}`, {
@@ -36,7 +36,7 @@ async function syncDataForItem(itemId: string, user_id: string, bank_connection_
     }
 
     const { results: accounts } = await accountsResponse.json();
-    console.log(`[SYNC] Contas encontradas: ${accounts?.length || 0}`);
+  
 
     if (!accounts || accounts.length === 0) return { user_id };
 
@@ -108,7 +108,7 @@ async function syncDataForItem(itemId: string, user_id: string, bank_connection_
         if (txError) console.error(`[SYNC_ERROR] Falha transações conta ${acc.id}:`, txError);
     }
     
-    console.log("[SYNC] Sucesso.");
+   
     return { user_id };
 }
 

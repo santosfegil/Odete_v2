@@ -54,7 +54,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
   const handleConfirmDelete = async () => {
     setLoading(true);
     try {
-      console.log(`Attempting to delete goal with id: ${goal.id}`);
+     
       const { error } = await supabase
         .from('goals')
         .delete()
@@ -65,7 +65,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
         throw error;
       }
 
-      console.log("Goal deleted successfully from supabase.");
+      
       onSuccess();
       onClose();
     } catch (error) {

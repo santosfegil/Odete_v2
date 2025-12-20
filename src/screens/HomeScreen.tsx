@@ -10,6 +10,9 @@ import SpendingHistoryScreen from './SpendingHistoryScreen';
 // AQUI ESTAVA O ERRO: Importamos o componente real agora, não o Mock
 import RetirementSimulator from '../components/RetirementSimulatorMock';
 import { usePatrimony } from '../hooks/usePatrimony';
+import { InvestmentGoalModal } from '../components/InvestmentGoalModal';
+import { InvestmentHistoryModal } from '../components/InvestmentHistoryModal';
+import { useMonthlyInvestment } from '../hooks/useMonthlyInvestment'; 
 
 interface HomeScreenProps {
   onShowProfile: () => void;
@@ -21,6 +24,9 @@ export default function HomeScreen({ onShowProfile, onShowBudget }: HomeScreenPr
   const [showEditModal, setShowEditModal] = useState(false);
   const { totals, accounts, refetch } = usePatrimony();
 const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+const [showGoalModal, setShowGoalModal] = useState(false); // State p/ Modal Meta
+const { currentInvested, monthlyGoal, refetch: refetchInvestment } = useMonthlyInvestment();
+const handleShowHistory = () => setShowInvestmentHistory(true);
   
   // Estado para controlar a exibição do histórico (navegação do card verde)
   const [showInvestmentHistory, setShowInvestmentHistory] = useState(false);
@@ -123,15 +129,27 @@ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
         ) : (
           <div className="space-y-6">
             <MonthlyInvestmentCard 
-              currentInvested={monthlyInvestmentData.current}
-              monthlyGoal={monthlyInvestmentData.goal}
+              currentInvested={currentInvested} 
+              monthlyGoal={monthlyGoal}        
               monthName={capitalizedMonth}
-              onShowHistory={() => setShowInvestmentHistory(true)}
+              onShowHistory={handleShowHistory}
+              onSettingsClick={() => setShowGoalModal(true)} 
             />
             <RetirementSimulator />
           </div>
         )}
       </main>
+
+      {showGoalModal && (
+        <InvestmentGoalModal 
+            onClose={() => setShowGoalModal(false)} 
+            onSuccess={refetchInvestment} // Recarrega o card ao salvar
+        />
+      )}
+      
+      {showInvestmentHistory && (
+         <InvestmentHistoryModal onClose={() => setShowInvestmentHistory(false)} />
+      )}
 
       {/* 3. MODAL ÚNICO AQUI EMBAIXO (COM OS DADOS CERTOS) */}
       {showEditModal && (

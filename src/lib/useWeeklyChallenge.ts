@@ -8,9 +8,9 @@ export function useWeeklyChallenge() {
 
   const fetchChallenge = async () => {
     try {
-      console.log("🔄 Buscando desafio...");
+     
       const { data: { user } } = await supabase.auth.getUser();
-      console.log("👤 Usuário Logado:", user?.id);
+     
 
       const today = new Date();
       const startOfWeek = new Date(today);
@@ -30,12 +30,11 @@ export function useWeeklyChallenge() {
         .limit(1);
 
       if (errChallenge) {
-        console.error("❌ Erro ao buscar desafio:", errChallenge);
+       
         throw errChallenge;
       }
 
-      console.log("📦 Desafios encontrados:", challenges);
-
+     
       if (!challenges || challenges.length === 0) {
         setChallenge(null);
         return;

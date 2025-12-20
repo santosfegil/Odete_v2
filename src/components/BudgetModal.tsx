@@ -104,7 +104,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ onClose, onSuccess, cu
   const fetchBudgets = async () => {
     setLoading(true);
     try {
-      console.log('--- Buscando dados do Orçamento ---');
+     
       const { data, error } = await supabase.rpc('get_budget_summary', {
         p_month: currentDate.getMonth() + 1,
         p_year: currentDate.getFullYear()
@@ -112,7 +112,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ onClose, onSuccess, cu
 
       if (error) throw error;
       
-      console.log('Dados recebidos:', data); // Verifique isso no console do navegador
+    
       setItems(data || []);
     } catch (err) {
       console.error('Erro ao carregar orçamentos:', err);

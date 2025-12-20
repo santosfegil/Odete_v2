@@ -49,7 +49,7 @@ const dbTools: Record<string, DatabaseTool> = {
   checkBalance: {
     name: 'checkBalance',
     execute: async ({ accountType }) => {
-      console.log(`[DB Mock] Checking balance for ${accountType || 'corrente'}`);
+     
       return JSON.stringify({ balance: 1420.50, currency: 'BRL', status: 'ok' });
     }
   },
