@@ -90,89 +90,126 @@ export default function RetirementSimulator() {
   useEffect(() => {
     loadData();
   }, []);
-  const loadData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      // 1. Carrega Dados do Usuário (Idade)
-      const { data: userData } = await supabase.from('users').select('birth_date').eq('id', user.id).single();
-      if (userData?.birth_date) setCurrentAge(calculateAge(userData.birth_date));
+// Função auxiliar ajustada para regra: Transferência com Destino = Conta de Aposentadoria
+const calculateMonthlyContributions = async (accountIds: string[]) => {
+  // Se não tem contas de aposentadoria selecionadas, o aporte é zero
+  if (!accountIds || accountIds.length === 0) return 0;
 
-      // 2. Carrega Plano Salvo
-      const { data: plan } = await supabase.from('retirement_plans').select('*').eq('user_id', user.id).maybeSingle();
-      if (plan) {
-        setPlanId(plan.id);
-        setRetirementAge(plan.target_retirement_age);
-        setDesiredIncome(plan.desired_monthly_income);
-        setMonthlyInvestment(plan.monthly_contribution);
-        setSelic(plan.assumptions_selic || 10);
-        setIpca(plan.assumptions_inflation || 6);
+  const now = new Date();
+  // Pega o dia 1º do mês atual
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('amount')
+    // 1. Apenas tipo TRANSFERÊNCIA
+    // OBS: Verifique no seu banco se está salvo como 'transfer', 'TRANSFER' ou 'Transfer'.
+    // Geralmente APIs financeiras usam MAIÚSCULO. Vou colocar 'TRANSFER' como padrão, 
+    // mas se não vier nada, tente mudar para minúsculo 'transfer'.
+    .eq('type', 'transfer') 
+    
+    // 2. O destino tem que ser uma das contas de aposentadoria
+    .in('destination_account_id', accountIds)
+    
+    // 3. Dentro do mês atual
+    .gte('date', startOfMonth);
 
-        setDisplayValues({
-          income: plan.desired_monthly_income,
-          age: plan.target_retirement_age,
-          investment: plan.monthly_contribution
-        });
-      }
+  if (error) {
+    console.error("Erro ao calcular aportes:", error);
+    return 0;
+  }
 
-      // 3. Carrega Contas e define Seleção Inicial
-      const { data: accounts } = await supabase.from('accounts').select('id, name, balance, type').eq('user_id', user.id);
-      
-      let idsToUse: string[] = []; // Variável local para definir o que selecionar
-      
-      if (accounts) {
-        setAllAccounts(accounts);
-        
-        // Recupera configuração do LocalStorage ou define padrão
-        const savedConfig = localStorage.getItem('@odete:retirement_accounts');
-        try {
-          if (savedConfig) {
-            idsToUse = JSON.parse(savedConfig);
-          } else {
-            idsToUse = accounts
-              .filter(a => ['wallet', 'bank', 'investment', 'checking_account', 'savings_account'].includes(a.type))
-              .map(a => a.id);
-          }
-        } catch (e) {
-          idsToUse = accounts.map(a => a.id); 
-        }
-        
-        // Atualiza o estado da seleção (Isso vai disparar o useEffect para calcular o Patrimônio Inicial)
-        setSelectedAccountIds(idsToUse);
-      }
+  // Soma tudo (Assume-se que o amount da transferência é positivo)
+  const total = transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
+  
+  return total;
+};
+const loadData = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      // 4. Carrega Transações do Mês (DADOS BRUTOS)
-      // Buscamos todas as transações de investimento do usuário.
-      // O filtro de "quais contas somar" será feito pelo useEffect automaticamente.
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0,0,0,0);
+    // 1. Busca Idade
+    const { data: userData } = await supabase
+      .from('users')
+      .select('birth_date')
+      .eq('id', user.id)
+      .single();
 
-      const { data: catData } = await supabase.from('categories').select('id').ilike('name', '%Investimento%');
-      const investCatIds = catData?.map(c => c.id) || [];
-
-      if (investCatIds.length > 0) {
-        const { data: investments } = await supabase
-          .from('transactions')
-          .select('amount, account_id')
-          .eq('user_id', user.id)
-          .in('category_id', investCatIds)
-          .gte('date', startOfMonth.toISOString());
-
-        // AQUI ESTÁ O SEGREDO: Apenas salvamos os dados. 
-        // O useEffect([selectedAccountIds, monthlyTransactions]) vai rodar agora e fazer a soma correta.
-        setMonthlyTransactions(investments || []); 
-      } else {
-        setMonthlyTransactions([]);
-      }
-
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
+    if (userData?.birth_date) {
+      const realAge = calculateAge(userData.birth_date);
+      setCurrentAge(realAge);
     }
-  };
+
+    // 2. Busca o Plano de Aposentadoria
+    const { data: plan } = await supabase
+      .from('retirement_plans')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    // Inicializa array vazio
+    let linkedAccountIds: string[] = [];
+
+    if (plan) {
+      setPlanId(plan.id);
+      
+      // Seta valores do simulador
+      setRetirementAge(plan.target_retirement_age);
+      setDesiredIncome(plan.desired_monthly_income);
+      setMonthlyInvestment(plan.monthly_contribution);
+      setSelic(plan.assumptions_selic || 10);
+      setIpca(plan.assumptions_ipca || 6);
+
+      setDisplayValues({
+        income: plan.desired_monthly_income,
+        age: plan.target_retirement_age,
+        investment: plan.monthly_contribution
+      });
+
+      // --- BUSCA CONTAS VINCULADAS ---
+      const { data: links } = await supabase
+        .from('retirement_plan_accounts')
+        .select('account_id')
+        .eq('plan_id', plan.id);
+
+      if (links && links.length > 0) {
+        linkedAccountIds = links.map(link => link.account_id);
+        setSelectedAccountIds(linkedAccountIds);
+      }
+    } // Fim do IF (plan)
+
+    // --- CÁLCULOS FINANCEIROS (Agora fora do IF PLAN, mas usando os IDs carregados) ---
+    
+    if (linkedAccountIds.length > 0) {
+      // 3. Calcula Patrimônio Inicial (Soma dos Saldos)
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('balance')
+        .in('id', linkedAccountIds);
+      
+      const totalPatrimony = accounts?.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0;
+      setInitialCapital(totalPatrimony);
+
+      // 4. Calcula Investido no Mês (Soma das Entradas - Nova Função)
+      const monthlyTotal = await calculateMonthlyContributions(linkedAccountIds);
+      setInvestedThisMonth(monthlyTotal);
+
+    } else {
+      // Se não tem plano ou não tem contas vinculadas
+      setInitialCapital(0);
+      setInvestedThisMonth(0);
+    }
+
+   
+
+  } catch (error) {
+    console.error('Erro ao carregar dados:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSave = async () => {
     setSaving(true);
@@ -264,12 +301,82 @@ export default function RetirementSimulator() {
     setDesiredIncome(recalculateIncome(val, retirementAge));
   };
 
-  // Função chamada pelo Modal para salvar a seleção
-  const handleSettingsSave = (newSelectedIds: string[]) => {
+// Função chamada pelo Modal ao confirmar a seleção
+const handleSettingsSave = async (newSelectedIds: string[]) => {
+  try {
+    setLoading(true);
+    
+    // 1. Calcular o Novo Patrimônio Inicial
+    // Buscamos no banco apenas o saldo das contas que foram selecionadas agora
+    const { data: accountsData } = await supabase
+      .from('accounts')
+      .select('balance')
+      .in('id', newSelectedIds);
+
+      const newInitialCapital = accountsData?.reduce((sum, acc) => sum + Number(acc.balance), 0) || 0;
+
+      const newInvestedThisMonth = await calculateMonthlyContributions(newSelectedIds);
+      setInvestedThisMonth(newInvestedThisMonth);
+
+    // 2. Preparar Variáveis para o Cálculo Financeiro
+    // Usamos as variáveis locais para garantir que o cálculo use o valor ATUALIZADO, não o estado antigo
+    const r = getRealMonthlyRate();
+    const months = Math.max(1, (retirementAge - currentAge) * 12);
+    
+    // Fórmula de Aposentadoria (Inversa)
+    // FV Necessário = Renda / Taxa
+    const requiredCapital = desiredIncome / r;
+    
+    // Quanto seu dinheiro atual vai render até lá sozinho
+    const fvInitial = newInitialCapital * Math.pow(1 + r, months);
+    
+    // O "Buraco" que falta preencher
+    const gap = requiredCapital - fvInitial;
+    
+    // Cálculo do novo Aporte Mensal (PMT)
+    let newMonthlyInvestment = 0;
+    if (gap > 0) {
+      newMonthlyInvestment = gap * (r / (Math.pow(1 + r, months) - 1));
+    }
+    newMonthlyInvestment = Math.round(newMonthlyInvestment);
+
+    // 3. SALVAR NO BANCO (Atualiza o Plano com o novo Aporte e a nova Meta calculada)
+    if (planId) {
+      await supabase
+        .from('retirement_plans')
+        .update({
+           monthly_contribution: newMonthlyInvestment,
+           // Opcional: Se quiser salvar o patrimônio calculado (calculated_patrimony_goal), pode por aqui também
+        })
+        .eq('id', planId);
+    }
+
+    // 4. Atualizar os Estados da Tela (Visual)
     setSelectedAccountIds(newSelectedIds);
+    setInitialCapital(newInitialCapital);
+    setMonthlyInvestment(newMonthlyInvestment);
+
+    
+    // Atualiza o display principal
+    setDisplayValues(prev => ({
+      ...prev,
+      investment: newMonthlyInvestment
+    }));
+
+    // Salva no LocalStorage (se ainda estiver usando)
     localStorage.setItem('@odete:retirement_accounts', JSON.stringify(newSelectedIds));
-    recalculatePatrimony(allAccounts, newSelectedIds);
-  };
+
+    // Recarrega dados de transações do mês para bater com as novas contas
+    // (Opcional, mas recomendado chamar loadData ou apenas revalidar o investedThisMonth)
+    await loadData(); 
+
+  } catch (error) {
+    console.error("Erro ao recalcular plano:", error);
+    alert("Erro ao atualizar o plano de aposentadoria.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // --- RENDER ---
   const formatMoney = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -406,7 +513,7 @@ export default function RetirementSimulator() {
                   />
               </div>
             </div>
-            <input type="range" min={1000} max={50000} step={500} value={desiredIncome} onChange={(e) => handleIncomeChange(Number(e.target.value))} className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500" />
+            <input type="range" min={1000} max={100000} step={500} value={desiredIncome} onChange={(e) => handleIncomeChange(Number(e.target.value))} className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500" />
           </div>
 
           {/* Slider Aporte */}
@@ -431,7 +538,7 @@ export default function RetirementSimulator() {
                   />
               </div>
             </div>
-            <input type="range" min={0} max={20000} step={50} value={monthlyInvestment} onChange={(e) => handleInvestmentChange(Number(e.target.value))} className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500" />
+            <input type="range" min={0} max={50000} step={50} value={monthlyInvestment} onChange={(e) => handleInvestmentChange(Number(e.target.value))} className="w-full h-1.5 bg-stone-100 rounded-lg appearance-none cursor-pointer accent-stone-900 dark:accent-emerald-500" />
           </div>
 
           {/* Configs Avançadas */}
@@ -468,6 +575,7 @@ export default function RetirementSimulator() {
       {/* --- MODAL --- */}
       {showAccountSettings && (
         <RetirementSettingsModal
+        planId={planId || ''}
           onClose={() => setShowAccountSettings(false)}
           initialSelection={selectedAccountIds}
           onSave={handleSettingsSave}

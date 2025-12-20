@@ -13,10 +13,11 @@ interface RetirementSettingsModalProps {
   onClose: () => void;
   // Retorna os IDs das contas que o usuário quer considerar
   onSave: (selectedAccountIds: string[]) => void;
+  planId: string; // ID do plano de aposentadoria
   initialSelection?: string[]; // IDs já selecionados anteriormente
 }
 
-export const RetirementSettingsModal: React.FC<RetirementSettingsModalProps> = ({ onClose, onSave, initialSelection = [] }) => {
+export const RetirementSettingsModal: React.FC<RetirementSettingsModalProps> = ({ onClose,planId, onSave, initialSelection = [] }) => {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialSelection);
   const [loading, setLoading] = useState(true);
@@ -27,21 +28,37 @@ export const RetirementSettingsModal: React.FC<RetirementSettingsModalProps> = (
 
   const fetchAccounts = async () => {
     try {
-      // Tipos permitidos conforme seu prompt
+      setLoading(true); // Garante o loading
+
+      // 1. Buscar todas as contas possíveis (lógica que você já tinha)
       const allowedTypes = ['wallet', 'bank', 'investment', 'checking_account', 'savings_account'];
-      
-      const { data } = await supabase
+      const { data: allAccounts } = await supabase
         .from('accounts')
         .select('id, name, type, balance')
         .in('type', allowedTypes);
 
-      if (data) {
-        setAccounts(data);
-        // Se for a primeira vez (sem seleção inicial), seleciona todos por padrão (UX comum)
-        if (initialSelection.length === 0) {
-            setSelectedIds(data.map(a => a.id));
-        }
+      if (allAccounts) {
+        setAccounts(allAccounts);
       }
+
+      // 2. NOVO: Buscar na tabela de junção o que já está salvo para este plano
+      const { data: savedLinks } = await supabase
+        .from('retirement_plan_accounts')
+        .select('account_id')
+        .eq('plan_id', planId);
+
+      // 3. Atualizar a seleção visual
+      if (savedLinks && savedLinks.length > 0) {
+        // Se achou no banco, usa do banco
+        setSelectedIds(savedLinks.map((link: any) => link.account_id));
+      } else if (initialSelection.length > 0) {
+        // Fallback para props antigas
+        setSelectedIds(initialSelection);
+      } else {
+        // Se não tem nada salvo, padrão: selecionar tudo (sua lógica original)
+        if (allAccounts) setSelectedIds(allAccounts.map(a => a.id));
+      }
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -55,11 +72,40 @@ export const RetirementSettingsModal: React.FC<RetirementSettingsModalProps> = (
     );
   };
 
-  const handleSaveInternal = () => {
-    onSave(selectedIds);
-    onClose();
-  };
+const handleSaveInternal = async () => {
+    try {
+      // 1. Limpeza: Remove TUDO que estava vinculado a este plano antes
+      // Isso garante que se você desmarcou uma conta, ela será removida.
+      const { error: deleteError } = await supabase
+        .from('retirement_plan_accounts')
+        .delete()
+        .eq('plan_id', planId);
 
+      if (deleteError) throw deleteError;
+
+      // 2. Inserção: Se houver contas selecionadas, cria as novas ligações
+      if (selectedIds.length > 0) {
+        const rowsToInsert = selectedIds.map(accountId => ({
+          plan_id: planId,
+          account_id: accountId
+        }));
+
+        const { error: insertError } = await supabase
+          .from('retirement_plan_accounts')
+          .insert(rowsToInsert);
+
+        if (insertError) throw insertError;
+      }
+
+      // 3. Finalização
+      onSave(selectedIds); // Avisa o pai para recarregar a tela (sem passar params)
+      onClose(); // Fecha o modal
+
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      alert('Erro ao salvar alterações.');
+    }
+  };
   // Ícone helper
   const getIcon = (type: string) => {
     if (type.includes('invest')) return <TrendingUp size={18} />;

@@ -7,6 +7,21 @@ interface InvestmentGoalModalProps {
   onSuccess: () => void;
 }
 
+
+const formatCurrency = (value: string) => {
+  // 1. Remove tudo que não é número
+  const onlyNumbers = value.replace(/\D/g, "");
+
+  // 2. Converte para centavos (divide por 100)
+  const numberValue = Number(onlyNumbers) / 100;
+
+  // 3. Formata para o padrão Brasileiro (1.000,00)
+  return numberValue.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClose, onSuccess }) => {
   const [amount, setAmount] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -23,12 +38,11 @@ export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClos
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Achar a categoria de Investimento (Conforme pedido: Name = Investimento)
-      // Nota: Idealmente usaríamos scope='investment', mas seguindo a spec do prompt:
+      // 1. Achar a categoria de Investimento
       const { data: categories } = await supabase
         .from('categories')
         .select('id')
-        .ilike('name', '%Investimento%') // Flexível para "Investimentos" ou "Investimento"
+        .ilike('name', '%Investimento%')
         .limit(1);
 
       if (categories && categories.length > 0) {
@@ -47,7 +61,13 @@ export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClos
           .maybeSingle();
 
         if (budget) {
-          setAmount(budget.amount_limit.toString());
+          // --- CORREÇÃO AQUI ---
+          // Formata o número (ex: 1000) para string formatada (ex: "1.000,00")
+          const formattedInitial = budget.amount_limit.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+          setAmount(formattedInitial);
         }
       }
     } catch (error) {
@@ -58,6 +78,9 @@ export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClos
   };
 
   const handleSave = async () => {
+
+
+    
     if (!categoryId) {
       alert('Categoria "Investimento" não encontrada no sistema. Crie-a primeiro.');
       return;
@@ -69,7 +92,9 @@ export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClos
       if (!user) return;
 
       const date = new Date();
-      const numericAmount = parseFloat(amount.replace(',', '.')) || 0;
+      const numericAmount = Number(
+        amount.replace(/\./g, '').replace(',', '.')
+      );
 
       // Upsert na tabela budgets
       const { error } = await supabase.from('budgets').upsert({
@@ -119,9 +144,14 @@ export const InvestmentGoalModal: React.FC<InvestmentGoalModalProps> = ({ onClos
             <div className="flex items-center gap-2 border-b-2 border-emerald-100 dark:border-emerald-900/50 focus-within:border-emerald-500 py-2 transition-colors">
               <span className="text-xl font-bold text-stone-400">R$</span>
               <input 
-                type="number" 
+                type="text"
+                inputMode="numeric"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  // Ao digitar, aplica a máscara imediatamente
+                  const formatted = formatCurrency(e.target.value);
+                  setAmount(formatted);
+                }}
                 placeholder="0,00"
                 className="w-full bg-transparent text-3xl font-extrabold text-stone-900 dark:text-white outline-none placeholder:text-stone-200"
                 autoFocus
