@@ -160,7 +160,7 @@ const loadData = async () => {
       setDesiredIncome(plan.desired_monthly_income);
       setMonthlyInvestment(plan.monthly_contribution);
       setSelic(plan.assumptions_selic || 10);
-      setIpca(plan.assumptions_ipca || 6);
+      setIpca(plan.assumptions_inflation || 6);
 
       setDisplayValues({
         income: plan.desired_monthly_income,

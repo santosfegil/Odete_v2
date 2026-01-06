@@ -285,7 +285,7 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
 
                 <div className="flex items-center gap-2 bg-stone-100/50 p-1 rounded-full">
                     <button onClick={handlePrevMonth} className="p-2 hover:bg-white rounded-full transition-all text-stone-500 hover:shadow-sm"><ChevronLeft size={18}/></button>
-                    <span className="text-xs font-bold text-stone-600 min-w-[80px] text-center capitalize">{capitalizedMonth}</span>
+                    <span className="text-xs font-bold text-stone-600 min-w-[80px] text-center ">{capitalizedMonth}</span>
                     <button onClick={handleNextMonth} className="p-2 hover:bg-white rounded-full transition-all text-stone-500 hover:shadow-sm"><ChevronRight size={18}/></button>
                 </div>
 
@@ -305,7 +305,7 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
           <div className="mb-6">
              <div className="animate-in slide-in-from-bottom-2 fade-in duration-300">
                 <p className="text-xs font-bold text-stone-400 mb-1">
-                    {activeFilter === 'Todos' ? 'Gasto Total' : `Gastos com ${activeFilter}`}
+                    {activeFilter === 'Todos' ? 'Gasto total' : `Gastos com ${activeFilter}`}
                 </p>
                 
                 <h1 className="text-3xl font-extrabold text-stone-900 tracking-tight flex items-baseline gap-2">
