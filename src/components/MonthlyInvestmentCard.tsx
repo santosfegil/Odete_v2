@@ -23,7 +23,7 @@ export const MonthlyInvestmentCard: React.FC<MonthlyInvestmentCardProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold text-stone-900 dark:text-white">
-          Investimento mensal
+          Investimento esse mês
         </h2>
         
         {/* 1 e 2: Botões Chat e Engrenagem no topo */}

@@ -286,6 +286,8 @@ const loadData = async () => {
     return Math.round(possibleIncome);
   };
 
+
+
   const handleAgeChange = (val: number) => {
     setRetirementAge(val);
     setMonthlyInvestment(recalculateInvestment(val, desiredIncome));
@@ -382,7 +384,23 @@ const handleSettingsSave = async (newSelectedIds: string[]) => {
   const formatMoney = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const diff = investedThisMonth - displayValues.investment;
 
+  
+  useEffect(() => {
+    // Evita recalcular enquanto ainda está carregando os dados iniciais
+    if (loading) return;
+
+    // Recalcula o Aporte Necessário mantendo a Idade e Renda Desejada fixas
+    // O 'getRealMonthlyRate' dentro dessa função já pegará os valores novos de selic/ipca
+    const newMonthlyInvestment = recalculateInvestment(retirementAge, desiredIncome);
+    
+    setMonthlyInvestment(newMonthlyInvestment);
+
+
+
+  }, [selic, ipca]);
+
   if (loading) return <div className="p-8 text-center text-stone-500">Carregando simulador...</div>;
+
 
   return (
     <div className="bg-[#F2F7FF] dark:bg-stone-900 rounded-[2.5rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative overflow-hidden transition-all">
@@ -498,7 +516,7 @@ const handleSettingsSave = async (newSelectedIds: string[]) => {
                 <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
                   <CircleDollarSign size={18} />
                 </div>
-                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Renda mensal</span>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Renda mensal desejada</span>
               </div>
               <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
                   <span className="text-xs font-bold text-stone-500 mr-1">R$</span>
@@ -523,7 +541,7 @@ const handleSettingsSave = async (newSelectedIds: string[]) => {
                 <div className="p-2.5 bg-stone-50 dark:bg-stone-700 rounded-xl text-stone-500 dark:text-stone-400 border border-stone-100 dark:border-stone-600">
                   <PiggyBank size={18} />
                 </div>
-                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Aporte necessário</span>
+                <span className="text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wide">Aporte mensal necessário</span>
               </div>
               <div className="flex items-center bg-stone-50 px-3 py-1 rounded-lg border border-stone-100 transition-colors hover:border-stone-300 focus-within:border-stone-900">
                   <span className="text-xs font-bold text-stone-500 mr-1">R$</span>
