@@ -29,19 +29,67 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        // Chamada única e otimizada ao Banco de Dados
-        const { data: result, error } = await supabase.rpc('get_investment_summary', { 
-          year_input: currentYear 
-        });
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+
+        // Buscar dados mensais consolidados diretamente da tabela
+        const { data: monthlyData, error } = await supabase
+          .from('monthly_consolidated')
+          .select('period_month, total_investment')
+          .eq('user_id', user.id)
+          .eq('period_year', currentYear)
+          .order('period_month', { ascending: true });
 
         if (error) throw error;
 
-        // O banco já retorna tudo no formato correto
+        // Calcular total investido no ano
+        const yearTotal = monthlyData?.reduce((sum, row) => sum + (row.total_investment || 0), 0) || 0;
+
+        // Buscar todos os budgets de investimento para o ano (categorias com scope = 'investment')
+        const { data: budgetsData } = await supabase
+          .from('budgets')
+          .select('amount_limit, month, categories!inner(scope)')
+          .eq('user_id', user.id)
+          .eq('categories.scope', 'investment')
+          .eq('year', currentYear);
+
+        // Construir histórico mensal
+        const currentMonth = new Date().getMonth() + 1;
+
+        const history = MONTH_NAMES.map((_, index) => {
+          const monthNum = index + 1;
+
+          // Total investido neste mês (de monthly_consolidated)
+          const monthData = monthlyData?.find(m => m.period_month === monthNum);
+          const total = monthData?.total_investment || 0;
+
+          // Meta do mês = soma de todos os budgets de investimento para este mês
+          const monthBudgets = budgetsData?.filter(b => b.month === monthNum) || [];
+          const monthlyGoal = monthBudgets.reduce((sum, b) => sum + (b.amount_limit || 0), 0);
+
+          let status: 'success' | 'warning' | 'future' | 'empty';
+          if (currentYear > actualYear || (currentYear === actualYear && monthNum > currentMonth)) {
+            status = 'future';
+          } else if (total >= monthlyGoal && monthlyGoal > 0) {
+            status = 'success';       // 🟢 Meta batida: investiu >= meta
+          } else if (total > 0) {
+            status = 'warning';       // 🟡 Parcial: investiu algo, mas < meta
+          } else {
+            status = 'empty';         // Cinza: não investiu nada
+          }
+
+          return { month_num: monthNum, total, status };
+        });
+
+        // Meta mensal geral (para exibição, usar a soma do mês atual ou média)
+        const currentMonthBudgets = budgetsData?.filter(b => b.month === currentMonth) || [];
+        const displayMonthlyGoal = currentMonthBudgets.reduce((sum, b) => sum + (b.amount_limit || 0), 0);
+
         setData({
-          year: result.year,
-          total_invested: result.year_total,
-          monthly_goal: result.monthly_goal,
-          history: result.history
+          year: currentYear,
+          total_invested: yearTotal,
+          monthly_goal: displayMonthlyGoal,
+          history
         });
 
       } catch (err) {
@@ -52,7 +100,7 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
     };
 
     fetchHistory();
-  }, [currentYear]);
+  }, [currentYear, actualYear]);
 
   const handlePrevious = () => setCurrentYear(prev => prev - 1);
   const handleNext = () => setCurrentYear(prev => prev + 1);
@@ -66,15 +114,15 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
         return 'bg-amber-400 text-white hover:bg-amber-500 border-none shadow-md shadow-amber-200 dark:shadow-none';
       case 'future':
         return 'bg-stone-50 text-stone-300 dark:bg-stone-800/50 dark:text-stone-600 border border-stone-100 dark:border-stone-800 cursor-default';
-      default: 
+      default:
         return 'bg-stone-100 text-stone-400 dark:bg-stone-800 dark:text-stone-500 border border-stone-200 dark:border-stone-700';
     }
   };
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-white pb-24 flex flex-col">
-     <header className="bg-stone-50 dark:bg-stone-950 p-6 flex items-center sticky top-0 z-10">
-         <button
+      <header className="bg-stone-50 dark:bg-stone-950 p-6 flex items-center sticky top-0 z-10">
+        <button
           onClick={onBack}
           className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-full transition-colors"
         >
@@ -82,25 +130,25 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
         </button>
         <h1 className="text-xl font-bold text-stone-900 dark:text-white absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
           Histórico de investimentos
-          </h1>
-          <div className="w-8"></div>
+        </h1>
+        <div className="w-8"></div>
       </header>
 
       <div className="p-6 space-y-6 flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex justify-center mt-20">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
         ) : (
           <div className="bg-white dark:bg-stone-900 rounded-[2rem] p-6 shadow-sm border border-stone-100 dark:border-stone-800 relative">
-            
+
             {/* Header do Ano + Navegação */}
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <h2 className="text-4xl font-extrabold tracking-tight text-stone-900 dark:text-white">{currentYear}</h2>
-                
+
                 {currentYear !== actualYear && (
-                  <button 
+                  <button
                     onClick={handleBackToCurrent}
                     className="flex items-center gap-1 p-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all animate-in fade-in zoom-in"
                     title="Voltar para o ano atual"
@@ -130,7 +178,7 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
             {/* Texto Descritivo */}
             <div className="mb-8">
               <p className="text-emerald-600 dark:text-emerald-400 text-3xl font-bold tracking-tight">
-                 R$ {data?.total_invested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                R$ {(data?.total_invested ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
               <p className="text-stone-500 dark:text-stone-400 text-sm font-medium mt-1">
                 Total investido em {currentYear}
@@ -148,16 +196,15 @@ export default function SpendingHistoryScreen({ onBack }: SpendingHistoryScreenP
                   <div
                     key={index}
                     className={`
-                      aspect-[4/3] flex flex-col items-center justify-center rounded-2xl text-xs font-bold transition-all relative overflow-hidden group
+                      aspect-[4/3] flex flex-col items-center justify-center rounded-2xl text-xs font-bold transition-all
                       ${getStatusStyle(status)}
                     `}
                   >
-                    <span className="z-10">{name}</span>
-                    {/* Tooltip nativo simples */}
+                    <span className="text-xs font-bold">{name}</span>
                     {total > 0 && (
-                       <div className="absolute inset-0 bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white">
-                         {total.toLocaleString('pt-BR', { notation: 'compact' })}
-                       </div>
+                      <span className="text-[9px] font-semibold opacity-80 mt-0.5">
+                        {total.toLocaleString('pt-BR', { notation: 'compact' })}
+                      </span>
                     )}
                   </div>
                 );
