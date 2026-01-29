@@ -1,75 +1,89 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PluggyClient } from "npm:pluggy-sdk";
 
-console.log("Função create-pluggy-token iniciada!")
+console.log("🚀 Função create-pluggy-token iniciada!")
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 Deno.serve(async (req) => {
-  // 1. Configuração de CORS (Para seu Frontend React conseguir acessar)
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  }
-
-  // Responde ao "pre-flight" do navegador (verificação de segurança antes do request real)
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 2. Acessa as chaves que você configurou nos Secrets do Supabase
-    // IMPORTANTE: Certifique-se de ter rodado o comando 'supabase secrets set ...'
-    const clientId = Deno.env.get('PLUGGY_CLIENT_ID')
-    const clientSecret = Deno.env.get('PLUGGY_CLIENT_SECRET')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Token de autenticação não fornecido.');
+    }
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
+      console.error("Erro de Auth:", authError);
+      throw new Error('Usuário não autenticado ou token inválido.');
+    }
+
+    console.log(`👤 Gerando token para usuário ID: ${user.id}`);
+
+    const clientId = Deno.env.get('PLUGGY_CLIENT_ID');
+    const clientSecret = Deno.env.get('PLUGGY_CLIENT_SECRET');
 
     if (!clientId || !clientSecret) {
-      throw new Error('As chaves PLUGGY_CLIENT_ID e PLUGGY_CLIENT_SECRET não foram encontradas no servidor.')
+      throw new Error('Credenciais da Pluggy não configuradas (Secrets).');
     }
 
-    // 3. Passo A: Autenticar na Pluggy para pegar a API KEY (Mestra)
-    const authResponse = await fetch('https://api.pluggy.ai/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, clientSecret }),
-    })
+    const pluggyClient = new PluggyClient({
+      clientId,
+      clientSecret,
+    });
 
-    if (!authResponse.ok) {
-      const errorText = await authResponse.text()
-      throw new Error(`Erro na Autenticação Pluggy: ${errorText}`)
+    // ========================================
+    // 🔧 CORREÇÃO PRINCIPAL: URL do Webhook
+    // ========================================
+    // Monta a URL correta das Edge Functions do Supabase
+    // Formato: https://[project-ref].supabase.co/functions/v1/sync-bank-data
+    const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\./)?.[1];
+    if (!projectRef) {
+      throw new Error('Não foi possível extrair project-ref da SUPABASE_URL');
     }
 
-    const { apiKey } = await authResponse.json()
+    const webhookBaseUrl = `https://${projectRef}.supabase.co/functions/v1/sync-bank-data`;
+    const webhookUrlWithId = `${webhookBaseUrl}?clientUserId=${user.id}`;
+    
+    console.log(`🔗 Webhook URL: ${webhookUrlWithId}`);
 
-    // 4. Passo B: Gerar o Connect Token (Temporário para o Frontend)
-    const tokenResponse = await fetch('https://api.pluggy.ai/connect_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': apiKey,
-      },
-      body: JSON.stringify({
-        // Aqui você pode adicionar opções extras no futuro, como webhookUrl
-      }),
-    })
+    // Gera o Connect Token
+    const data = await pluggyClient.createConnectToken(undefined, {
+      clientUserId: user.id,          // Método Principal
+      webhookUrl: webhookUrlWithId,   // Método de Backup
+      options: {
+        includeSandbox: true
+      }
+    });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      throw new Error(`Erro ao gerar Connect Token: ${errorText}`)
-    }
+    console.log(`✅ Token criado: ${data.accessToken.substring(0, 20)}...`);
 
-    const data = await tokenResponse.json()
-
-    // 5. Retorna o token para o seu botão no React
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
-    })
+    });
 
   } catch (error) {
-    // Tratamento de erro seguro
-    console.error(error)
+    console.error("🚨 Erro ao criar token:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
-    })
+    });
   }
-})
+});

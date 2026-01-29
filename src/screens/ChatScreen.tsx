@@ -44,6 +44,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true); // Controla o loading inicial da tela
+  const [pendingSession, setPendingSession] = useState(false); // Flag para lazy session creation
 
   // --- Active Chat State ---
   const [input, setInput] = useState('');
@@ -189,45 +190,19 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
     if (!user || creatingChatRef.current) return;
     const initialGreeting = "Olá, sou a Odete, sua assistente financeira, como posso te ajudar hoje?";
     
-    // Evita criar duplicado se já estiver carregando
-    if (isLoading) return; 
-    setIsLoading(true);
-
-    try {
-      const { data: sessionData, error: sessionError} = await supabase
-        .from('ai_chat_sessions')
-        .insert({
-          user_id: user.id,
-          mode: OdeteMode.MIMAR,
-          title: 'Nova Conversa',
-          preview: initialGreeting,
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-        if (sessionError) throw sessionError;
-
-        if (sessionData) {
-          // Insere mensagem inicial
-          await supabase
-              .from('ai_chat_messages')
-              .insert({
-                  session_id: sessionData.id,
-                  role: 'model',
-                  content: initialGreeting
-              });
-    
-          setSessions(prev => [sessionData, ...prev]);
-          
-          // Abre o chat e salva no cache
-          await openChat(sessionData); 
-        }
-    } catch (err) {
-      console.error('Erro ao criar chat:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    // 🔥 LAZY SESSION: Apenas configura estado local, NÃO insere no banco ainda
+    const tempSessionId = `temp-${Date.now()}`;
+    setActiveChatId(tempSessionId);
+    setMode(OdeteMode.MIMAR);
+    setPendingSession(true); // Marca que a sessão ainda não foi persistida
+    setMessages([{
+      id: '1',
+      role: 'model',
+      content: initialGreeting,
+      timestamp: new Date()
+    }]);
+    setInput('');
+    setIsLoading(false);
   };
 
   const openChat = async (session: ChatSession) => {
@@ -368,7 +343,50 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
     setInput('');
     setIsLoading(true);
 
-    saveMessageToDb(activeChatId, 'user', userMsg.content, userMsg.type);
+    // 🔥 LAZY SESSION: Se é a primeira mensagem, cria a sessão no banco agora
+    let realSessionId = activeChatId;
+    if (pendingSession && activeChatId?.startsWith('temp-') && user) {
+      try {
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('ai_chat_sessions')
+          .insert({
+            user_id: user.id,
+            mode,
+            title: 'Nova Conversa',
+            preview: userMsg.content.slice(0, 50),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (sessionError) throw sessionError;
+
+        if (sessionData) {
+          // Salva a mensagem inicial da Odete (greeting)
+          const greetingMsg = messages.find(m => m.role === 'model');
+          if (greetingMsg) {
+            await supabase.from('ai_chat_messages').insert({
+              session_id: sessionData.id,
+              role: 'model',
+              content: greetingMsg.content
+            });
+          }
+
+          realSessionId = sessionData.id;
+          setActiveChatId(sessionData.id);
+          setPendingSession(false);
+          updateSessionCache(sessionData.id);
+          setSessions(prev => [sessionData, ...prev]);
+        }
+      } catch (err) {
+        console.error('Erro ao criar sessão:', err);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // Salva a mensagem do usuário (agora com ID real)
+    saveMessageToDb(realSessionId, 'user', userMsg.content, userMsg.type);
 
     try {
       const apiHistory = messages
@@ -395,7 +413,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
       };
 
       setMessages(prev => [...prev, modelMsg]);
-      saveMessageToDb(activeChatId, 'model', responseText, 'text');
+      saveMessageToDb(realSessionId, 'model', responseText, 'text');
 
     } catch (error) {
       console.error(error);

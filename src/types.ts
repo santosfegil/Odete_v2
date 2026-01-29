@@ -185,12 +185,15 @@ export interface WeeklyChallenge {
   id: string;
   category: string;
   title: string;
+  description?: string;
+  categoryName?: string;
   currentAmount: number;
   targetAmount: number;
   averageSpent: number;
   savingTarget: number;
   weekProgress: {
     day: string;
+    date?: string;
     status: 'success' | 'failed' | 'pending' | 'today';
   }[];
 }

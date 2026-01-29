@@ -3,9 +3,11 @@ import {
   Search, Filter, Car, ArrowDownLeft, Zap, Coffee, 
   ShoppingBag, Utensils, Briefcase, Plus, X, Tag, Check, Sparkles,
   ChevronLeft, ChevronRight, Calendar, Clock, ArrowLeft, CheckCircle2,
-  Landmark, Receipt, Plane, Gift, Home, Gamepad2, FileText, TrendingUp, Loader2
+  Landmark, Receipt, Plane, Gift, Home, Gamepad2, FileText, TrendingUp, Loader2,
+  EyeOff, Eye, Pencil, FolderEdit
 } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // Certifique-se que o caminho está correto
+import { supabase } from '../lib/supabase';
+import CategoryEditModal from '../components/CategoryEditModal'; // Certifique-se que o caminho está correto
 
 // Interface alinhada com sua View do Supabase
 interface TransactionDetail {
@@ -22,6 +24,7 @@ interface TransactionDetail {
   account_name: string; 
   bank_logo: string | null; 
   bank_name: string | null;
+  ignored_in_charts: boolean;
 }
 
 interface TransactionScreenProps {
@@ -65,6 +68,11 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
   const [globalTagInput, setGlobalTagInput] = useState('');
   
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modo de edição de categorias
+  const [editMode, setEditMode] = useState(false);
+  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
+  const [categoryEditTx, setCategoryEditTx] = useState<TransactionDetail | null>(null);
 
   // --- LÓGICA DE DATA ---
   const today = new Date();
@@ -187,7 +195,9 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
   }, [activeFilter, statusFilter, transactions, searchTerm]); // Adicionado searchTerm nas dependências
 
   const totals = useMemo(() => {
-    return filteredTransactions.reduce((acc, t) => {
+    return filteredTransactions
+      .filter(t => !t.ignored_in_charts) // Exclui ignoradas do total
+      .reduce((acc, t) => {
         if (t.type === 'expense') {
             const val = Math.abs(t.amount);
             acc.total += val;
@@ -258,6 +268,37 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
     setStatusFilter(prev => prev === status ? 'all' : status);
   };
 
+  // Toggle para ignorar transação do orçamento
+  const toggleIgnoredInCharts = async (txId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Previne abrir modal de tags
+    
+    const tx = transactions.find(t => t.id === txId);
+    if (!tx) return;
+    
+    const newValue = !tx.ignored_in_charts;
+    
+    // Optimistic update
+    setTransactions(prev => prev.map(t => 
+      t.id === txId ? { ...t, ignored_in_charts: newValue } : t
+    ));
+    
+    // Update in Supabase
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ ignored_in_charts: newValue })
+        .eq('id', txId);
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error('Erro ao atualizar ignored_in_charts:', err);
+      // Revert on error
+      setTransactions(prev => prev.map(t => 
+        t.id === txId ? { ...t, ignored_in_charts: !newValue } : t
+      ));
+    }
+  };
+
   // Helper para formatar data bonita (ex: "18 Dez, 14:30")
   const formatDateDisplay = (dateString: string) => {
     if (!dateString) return '';
@@ -296,9 +337,22 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
                 )}
             </div>
 
-            <button onClick={() => setShowTagModal(true)} className="p-3 bg-stone-50 rounded-full text-stone-500 border border-stone-100 hover:bg-stone-100 active:scale-95 transition-all shadow-sm">
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setEditMode(!editMode)} 
+                className={`p-3 rounded-full border transition-all shadow-sm active:scale-95 ${
+                  editMode 
+                    ? 'bg-amber-500 text-white border-amber-500' 
+                    : 'bg-stone-50 text-stone-500 border-stone-100 hover:bg-stone-100'
+                }`}
+                title="Editar categorias"
+              >
+                <Pencil size={20} />
+              </button>
+              <button onClick={() => setShowTagModal(true)} className="p-3 bg-stone-50 rounded-full text-stone-500 border border-stone-100 hover:bg-stone-100 active:scale-95 transition-all shadow-sm">
                 <Filter size={20} />
-            </button>
+              </button>
+            </div>
           </div>
 
           {/* TOTAIS */}
@@ -389,7 +443,13 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
                 return (
                     <div 
                     key={tx.id}
-                    onClick={() => setEditingTxId(tx.id)}
+                    onClick={() => {
+                      if (editMode) {
+                        setCategoryEditTx(tx);
+                      } else {
+                        setEditingTxId(tx.id);
+                      }
+                    }}
                     className={`
                         group relative p-4 rounded-[1.5rem] border shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:scale-[1.01] transition-all cursor-pointer active:scale-[0.99]
                         ${isPending 
@@ -434,12 +494,24 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
 
                         <div className="text-right flex flex-col justify-center items-end shrink-0 pl-2">
                             <div className="flex items-center justify-end gap-1 mb-1">
+                                {/* Toggle Ignorar do Orçamento */}
+                                <button
+                                  onClick={(e) => toggleIgnoredInCharts(tx.id, e)}
+                                  className={`p-1 rounded-md transition-all ${
+                                    tx.ignored_in_charts
+                                      ? 'bg-violet-100 text-violet-600 hover:bg-violet-200'
+                                      : 'bg-stone-100 text-stone-400 hover:bg-stone-200 opacity-0 group-hover:opacity-100'
+                                  }`}
+                                  title={tx.ignored_in_charts ? 'Incluir no orçamento' : 'Ignorar do orçamento'}
+                                >
+                                  {tx.ignored_in_charts ? <EyeOff size={12} /> : <Eye size={12} />}
+                                </button>
                                 {isPending && <span className="bg-amber-100 text-amber-700 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap"><Clock size={8} /> A Pagar</span>}
                                 <span className={`text-[9px] font-bold whitespace-nowrap px-1.5 py-0.5 rounded-md ${isPending ? 'bg-amber-50 text-amber-600' : 'bg-stone-100 text-stone-400'}`}>
                                   {formatDateDisplay(tx.date)}
                                 </span>
                             </div>
-                            <span className={`block font-black text-sm ${isPending ? 'text-stone-400' : tx.type === 'income' ? 'text-emerald-600' : 'text-stone-900'}`}>
+                            <span className={`block font-black text-sm ${tx.ignored_in_charts ? 'text-violet-400 line-through' : isPending ? 'text-stone-400' : tx.type === 'income' ? 'text-emerald-600' : 'text-stone-900'}`}>
                                 {tx.type === 'expense' ? '-' : '+'} {Math.abs(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                             <span className="text-[9px] font-bold text-stone-400 truncate max-w-[80px] block mt-0.5">{tx.account_name}</span>
@@ -509,7 +581,38 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
             </div>
           </div>
         )}
+
+        {/* Modal de Edição de Categoria - DENTRO do container do celular */}
+        {categoryEditTx && (
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex flex-col justify-end animate-in fade-in duration-200">
+            <div className="flex-1" onClick={() => {
+              setCategoryEditTx(null);
+              setEditMode(false);
+            }} />
+            <CategoryEditModal
+               isOpen={true}
+               onClose={() => {
+                 setCategoryEditTx(null);
+                 setEditMode(false);
+               }}
+               transaction={{
+                 id: categoryEditTx.id,
+                 description: categoryEditTx.description,
+                 amount: categoryEditTx.amount,
+                 category_id: undefined,
+                 category_name: categoryEditTx.category_name
+               }}
+               onSuccess={() => {
+                 fetchTransactions();
+                 setCategoryEditTx(null);
+                 setEditMode(false);
+               }}
+               inline={true} 
+            />
+          </div>
+        )}
       </div>
+
       <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e7e5e4; border-radius: 20px; }`}</style>
     </div>
   );

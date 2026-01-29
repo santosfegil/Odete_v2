@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import MedalDetailModal from '../components/MedalDetailModal';
 import { EditGoalModal } from '../components/EditGoalModal';
 import { ChallengeCard } from '../components/ChallengeCard';
+import { CreateChallengeModal } from '../components/CreateChallengeModal';
 import FinancialFreedomSection from '../components/FinancialFreedomSection';
 
 // Hooks & Libs
@@ -51,10 +52,11 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
   const [goals, setGoals] = useState<RealGoal[]>([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [investmentSummary, setInvestmentSummary] = useState<InvestmentSummary | null>(null);
+  const [showCreateChallenge, setShowCreateChallenge] = useState(false);
 
   // Hooks
   const { earnedMedals, loading: loadingMedals } = useAchievements();
-  const { challenge, loading: loadingChallenge } = useWeeklyChallenge(); // <--- Hook conectado
+  const { challenge, loading: loadingChallenge, refetch: refetchChallenge } = useWeeklyChallenge();
 
   const menuRef = useRef<HTMLDivElement>(null);
   const { signOut } = useAuth();
@@ -122,7 +124,12 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
             ) : (
               <div className="p-6 bg-white dark:bg-stone-900 rounded-3xl text-center border border-stone-100 border-dashed">
                 <p className="text-stone-500 text-sm">Nenhum desafio ativo.</p>
-                <button className="mt-2 text-emerald-600 font-bold text-sm">Criar desafio</button>
+                <button 
+                  onClick={() => setShowCreateChallenge(true)}
+                  className="mt-2 text-emerald-600 font-bold text-sm"
+                >
+                  Criar desafio
+                </button>
               </div>
             )}
 
@@ -192,6 +199,15 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
       </div>
       {selectedMedal && <MedalDetailModal medal={selectedMedal} onClose={() => setSelectedMedal(null)} />}
       {selectedGoal && <EditGoalModal goal={selectedGoal} onClose={() => setSelectedGoal(null)} onSuccess={fetchGoals} />}
+      {showCreateChallenge && (
+        <CreateChallengeModal 
+          onClose={() => setShowCreateChallenge(false)} 
+          onSuccess={() => {
+            setShowCreateChallenge(false);
+            refetchChallenge();
+          }} 
+        />
+      )}
     </div>
   );
 }

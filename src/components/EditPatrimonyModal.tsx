@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Home, DollarSign, Wallet, Car, Box } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AccountItem } from '../hooks/usePatrimony';
@@ -25,9 +25,16 @@ export const EditPatrimonyModal: React.FC<EditPatrimonyModalProps> = ({
   initialAccounts 
 }) => {
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<any[]>(initialAccounts || []); 
+  const [items, setItems] = useState<any[]>([]); // Inicia vazio
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+
+  // Sincroniza items quando initialAccounts mudar
+  useEffect(() => {
+    if (initialAccounts && initialAccounts.length > 0) {
+      setItems(initialAccounts);
+    }
+  }, [initialAccounts]);
 
   // --- FILTROS ---
   const getFilteredItems = () => {
@@ -46,14 +53,17 @@ export const EditPatrimonyModal: React.FC<EditPatrimonyModalProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não logado");
 
-      const upsertList = items.map(item => {
+      // IMPORTANTE: Filtra apenas contas MANUAIS para salvar
+      // Contas automáticas (Open Finance) não devem ser modificadas pelo frontend
+      const manualItems = items.filter(item => item.account_creation_type !== 'automatic');
+
+      const upsertList = manualItems.map(item => {
         let cleanBalance = item.amount;
         if (typeof cleanBalance === 'string') cleanBalance = parseFloat(cleanBalance.replace(',', '.'));
         if (isNaN(cleanBalance)) cleanBalance = 0;
 
         const finalId = (item.id && item.id.length > 10) ? item.id : generateUUID();
         const finalExternalId = item.external_id || `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const finalCreationType = item.account_creation_type || 'manual';
 
         return {
           id: finalId,
@@ -62,12 +72,14 @@ export const EditPatrimonyModal: React.FC<EditPatrimonyModalProps> = ({
           type: item.type,
           balance: cleanBalance,
           external_id: finalExternalId,
-          account_creation_type: finalCreationType
+          account_creation_type: 'manual' // Sempre manual para itens salvos pelo frontend
         };
       });
 
-      const { error } = await supabase.from('accounts').upsert(upsertList);
-      if (error) throw error;
+      if (upsertList.length > 0) {
+        const { error } = await supabase.from('accounts').upsert(upsertList);
+        if (error) throw error;
+      }
 
       onSuccess();
       onClose();
@@ -95,6 +107,14 @@ export const EditPatrimonyModal: React.FC<EditPatrimonyModalProps> = ({
   const requestDelete = (item: any) => setItemToDelete(item);
   const confirmDelete = async () => {
     if (!itemToDelete) return;
+    
+    // Segurança: bloqueia deleção de itens automáticos (Open Finance)
+    if (itemToDelete.account_creation_type === 'automatic') {
+      alert('Não é possível excluir patrimônios sincronizados automaticamente via Open Finance.');
+      setItemToDelete(null);
+      return;
+    }
+    
     if (itemToDelete.id && itemToDelete.id.length > 10) {
        await supabase.from('accounts').delete().eq('id', itemToDelete.id);
     }

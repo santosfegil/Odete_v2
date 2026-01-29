@@ -459,6 +459,7 @@
 | id            | uuid                     | NO           |
 | user_id       | uuid                     | NO           |
 | title         | text                     | NO           |
+| description   | text                     | YES          |
 | category_id   | uuid                     | NO           |
 | target_amount | numeric                  | NO           |
 | average_spent | numeric                  | NO           |
