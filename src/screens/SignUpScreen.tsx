@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { OdeteLogoFull } from '../components/OdeteLogos';
 
 interface SignUpScreenProps {
   onLoginClick: () => void;
@@ -68,8 +69,8 @@ export default function SignUpScreen({ onLoginClick }: SignUpScreenProps) {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-3xl font-bold text-white">O</span>
+          <div className="w-20 h-20 rounded-3xl overflow-hidden mx-auto mb-4 shadow-lg">
+            <OdeteLogoFull size={80} />
           </div>
           <h1 className="text-3xl font-bold text-stone-900 mb-2">Crie sua conta</h1>
           <p className="text-stone-600">Comece sua jornada para a liberdade financeira</p>

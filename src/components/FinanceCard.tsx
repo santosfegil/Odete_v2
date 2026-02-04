@@ -76,7 +76,7 @@ export const FinanceCard: React.FC = () => {
   const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
   const daysLeft = isCurrentMonth ? Math.max(0, lastDayOfMonth - today.getDate()) : 0;
 
-  const totalOutflows = (data?.spent || 0) + (data?.owed || 0) + (data?.invested || 0);
+  const totalOutflows = Math.abs(data?.spent || 0) + Math.abs(data?.owed || 0) + Math.abs(data?.invested || 0);
   const available = Math.max(0, (data?.budget || 0) - totalOutflows);
   const dailyAvailable = daysLeft > 0 ? available / daysLeft : 0;
 

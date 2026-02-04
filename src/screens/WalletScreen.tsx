@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Award, ArrowRight, Share2, LogOut, Link, Umbrella, Plus } from 'lucide-react';
+import { User, Award, ArrowRight, Share2, LogOut, Link, Umbrella, Plus, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -24,7 +24,8 @@ interface RealGoal {
   current_amount: number;
   progress: number;
   is_automated: boolean;
-  linked_account_name?: string; 
+  linked_account_name?: string;
+  linked_account_id?: string;
 }
 
 interface InvestmentSummary {
@@ -162,13 +163,23 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
               </div>
               <div className="space-y-3">
               {goals.slice(0, 2).map((goal) => (
-                  <button key={goal.id} onClick={() => setSelectedGoal(goal)} className="w-full text-left bg-[#F2F7FF] dark:bg-stone-800 rounded-2xl p-4 shadow-sm border border-stone-100 dark:border-stone-700 transition-transform active:scale-[0.98]">
+                  <button key={goal.id} onClick={() => setSelectedGoal(goal)} className={`w-full text-left rounded-2xl p-4 shadow-sm transition-transform active:scale-[0.98] ${
+                    goal.progress >= 100
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-2 border-emerald-400 dark:border-emerald-600'
+                      : 'bg-[#F2F7FF] dark:bg-stone-800 border border-stone-100 dark:border-stone-700'
+                  }`}>
                     <div className="flex flex-col gap-2">
                       <div className="flex justify-between items-start">
                         <p className="font-bold text-stone-900 dark:text-white text-sm">{goal.title}</p>
-                        {goal.is_automated && <span className="text-[9px] bg-white/50 dark:bg-black/20 text-emerald-600 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"><Link size={8}/> AUTO</span>}
+                        <div className="flex items-center gap-1">
+                          {goal.progress >= 100 && <CheckCircle size={14} className="text-emerald-500" />}
+                          {goal.is_automated && <span className="text-[9px] bg-white/50 dark:bg-black/20 text-emerald-600 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"><Link size={8}/> AUTO</span>}
+                        </div>
                       </div>
-                      
+                      {goal.is_automated && goal.linked_account_name && (
+                        <p className="text-[10px] text-stone-400 dark:text-stone-500 -mt-0.5">Vinculado a: {goal.linked_account_name}</p>
+                      )}
+
                       <div className="w-full bg-white dark:bg-stone-700 rounded-full h-2 overflow-hidden">
                         <div className="bg-emerald-400 h-2 rounded-full" style={{ width: `${Math.min(goal.progress, 100)}%` }}></div>
                       </div>

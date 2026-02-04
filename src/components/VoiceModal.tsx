@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Mic, MicOff, PhoneOff, X, Volume2 } from 'lucide-react';
 import { OdeteMode } from '../types';
+import { OdeteAvatar } from './OdeteLogos';
 
 interface VoiceModalProps {
   isOpen: boolean;
@@ -86,8 +87,8 @@ const VoiceModal: React.FC<VoiceModalProps> = ({
                 )}
             </>
         )}
-        <div className={`w-48 h-48 rounded-full border-4 ${isAiSpeaking ? 'border-white' : 'border-white/30'} shadow-2xl overflow-hidden relative z-10 bg-gray-800 transition-all duration-300 transform ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
-             <img src={`https://picsum.photos/seed/odete/400`} alt="Avatar" className="w-full h-full object-cover"/>
+        <div className={`w-48 h-48 rounded-full border-4 ${isAiSpeaking ? 'border-white' : 'border-white/30'} shadow-2xl overflow-hidden relative z-10 transition-all duration-300 transform ${isAiSpeaking ? 'scale-105' : 'scale-100'}`}>
+             <OdeteAvatar size={192} />
         </div>
       </div>
 

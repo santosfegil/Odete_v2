@@ -1,5 +1,6 @@
-import { Home, MessageCircle, Wallet } from 'lucide-react';
+import { Home, Wallet } from 'lucide-react';
 import type { Screen } from '../types';
+import { OdeteChatIcon } from './OdeteLogos';
 
 interface TabBarProps {
   activeTab: Screen;
@@ -7,9 +8,10 @@ interface TabBarProps {
 }
 
 export default function TabBar({ activeTab, onTabChange }: TabBarProps) {
-  const tabs: { id: Screen; icon: typeof Home; label: string }[] = [
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tabs: { id: Screen; icon: React.ComponentType<any>; label: string }[] = [
     { id: 'home', icon: Home, label: 'Início' },
-    { id: 'chat', icon: MessageCircle, label: 'Odete' },
+    { id: 'chat', icon: OdeteChatIcon, label: 'Odete' },
     { id: 'wallet', icon: Wallet, label: 'Carteira' },
   ];
 

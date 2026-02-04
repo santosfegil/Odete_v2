@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Umbrella, Check, Link } from 'lucide-react';
+import { ArrowLeft, Plus, Umbrella, Check, Link, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { EditGoalModal } from '../components/EditGoalModal'; // Importe o novo componente
 
@@ -16,6 +16,7 @@ interface GoalItem {
   progress: number;
   is_automated: boolean;
   linked_account_name?: string;
+  linked_account_id?: string;
 }
 
 export default function AllGoalsScreen({ onBack, onCreateGoal }: AllGoalsScreenProps) {
@@ -71,26 +72,35 @@ export default function AllGoalsScreen({ onBack, onCreateGoal }: AllGoalsScreenP
           goals.map((goal) => (
             <button
               key={goal.id}
-              onClick={() => setSelectedGoal(goal)} // Abre o modal ao clicar
-              className="w-full text-left p-5 bg-[#F2F7FF] dark:bg-stone-800 rounded-3xl shadow-sm border border-stone-100 dark:border-stone-700 relative overflow-hidden transition-transform active:scale-[0.98]"
+              onClick={() => setSelectedGoal(goal)}
+              className={`w-full text-left p-5 rounded-3xl shadow-sm relative overflow-hidden transition-transform active:scale-[0.98] ${
+                goal.progress >= 100
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-2 border-emerald-400 dark:border-emerald-600'
+                  : 'bg-[#F2F7FF] dark:bg-stone-800 border border-stone-100 dark:border-stone-700'
+              }`}
                  >
-              {goal.is_automated && (
+              {goal.progress >= 100 ? (
+                <div className="absolute top-5 right-5 text-white bg-emerald-500 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
+                  <CheckCircle size={10} />
+                  META BATIDA!
+                </div>
+              ) : goal.is_automated ? (
                 <div className="absolute top-5 right-5 text-emerald-600 bg-white/50 dark:bg-emerald-900/30 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
                    <Link size={10} />
                   AUTO
                 </div>
-              )}
-<div className="mb-4">
+              ) : null}
+              <div className="mb-4">
                 <h2 className="font-bold text-stone-900 dark:text-white text-lg leading-tight pr-12">{goal.title}</h2>
-                {goal.is_automated && (
+                {goal.is_automated && goal.linked_account_name && (
                   <p className="text-xs text-stone-400 mt-1">Vinculado a: {goal.linked_account_name}</p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-medium">
-                  <span className="text-stone-500 dark:text-stone-400">
-                    {goal.progress.toFixed(0)}% concluído
+                  <span className={goal.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-stone-500 dark:text-stone-400'}>
+                    {goal.progress >= 100 ? 'Concluída!' : `${goal.progress.toFixed(0)}% concluído`}
                   </span>
                   <span className="text-stone-500 dark:text-stone-400">
   R$ {goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-stone-900 dark:text-white font-bold">/ {goal.target_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Trash2, AlertTriangle, Link as LinkIcon, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Goal {
@@ -10,6 +10,14 @@ interface Goal {
   progress: number;
   is_automated: boolean;
   linked_account_name?: string;
+  linked_account_id?: string;
+}
+
+interface AccountOption {
+  id: string;
+  name: string;
+  balance: number;
+  type: string;
 }
 
 interface EditGoalModalProps {
@@ -27,8 +35,27 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
     goal.current_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
   );
 
+  const [trackingType, setTrackingType] = useState<'manual' | 'auto'>(
+    goal.is_automated ? 'auto' : 'manual'
+  );
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    goal.linked_account_id || null
+  );
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+
   const [loading, setLoading] = useState(false);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false); // Novo estado
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      const { data } = await supabase
+        .from('accounts')
+        .select('id, name, balance, type')
+        .in('type', ['investment', 'bank']);
+      if (data) setAccounts(data);
+    };
+    fetchAccounts();
+  }, []);
 
   const formatCurrency = (value: string) => {
     let v = value.replace(/\D/g, '');
@@ -78,13 +105,24 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
   };
 
   const handleSave = async () => {
+    if (trackingType === 'auto' && !selectedAccountId) {
+      alert('Selecione uma conta para vincular.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const updates = {
+      const updates: Record<string, unknown> = {
         title,
         target_amount: parseCurrency(targetAmount),
-        current_amount: parseCurrency(currentAmount),
       };
+
+      if (trackingType === 'manual') {
+        updates.linked_account_id = null;
+        updates.current_amount = parseCurrency(currentAmount);
+      } else {
+        updates.linked_account_id = selectedAccountId;
+      }
 
       const { error } = await supabase
         .from('goals')
@@ -143,7 +181,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
             </div>
           </div>
 
-          {!goal.is_automated && (
+          {trackingType === 'manual' && (
             <div>
               <label className="block text-xs font-bold text-stone-900 dark:text-stone-200  mb-1 ml-1">
                 Quanto já guardou?
@@ -159,13 +197,80 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({ goal, onClose, onS
               </div>
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-bold text-stone-900 dark:text-stone-200 mb-2 ml-1">
+              Como rastrear?
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setTrackingType('manual'); setSelectedAccountId(null); }}
+                className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                  trackingType === 'manual'
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-500'
+                    : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 hover:bg-stone-50 dark:hover:bg-stone-600'
+                }`}
+              >
+                <Wallet size={16} className={trackingType === 'manual' ? 'text-emerald-600' : 'text-stone-400'} />
+                <span className={`font-bold text-xs ${trackingType === 'manual' ? 'text-emerald-900 dark:text-emerald-300' : 'text-stone-600 dark:text-stone-300'}`}>
+                  Manual
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrackingType('auto')}
+                className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                  trackingType === 'auto'
+                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 ring-1 ring-emerald-500'
+                    : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 hover:bg-stone-50 dark:hover:bg-stone-600'
+                }`}
+              >
+                <LinkIcon size={16} className={trackingType === 'auto' ? 'text-emerald-600' : 'text-stone-400'} />
+                <span className={`font-bold text-xs ${trackingType === 'auto' ? 'text-emerald-900 dark:text-emerald-300' : 'text-stone-600 dark:text-stone-300'}`}>
+                  Automático
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {trackingType === 'auto' && (
+            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+              <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 ml-1">
+                Vincular à conta:
+              </label>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {accounts.length === 0 ? (
+                  <p className="text-xs text-stone-400 text-center py-2">Carregando contas...</p>
+                ) : (
+                  accounts.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => setSelectedAccountId(acc.id)}
+                      className={`w-full flex justify-between items-center p-2.5 rounded-xl border transition-all ${
+                        selectedAccountId === acc.id
+                          ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-300 ring-1 ring-emerald-500'
+                          : 'border-stone-200 dark:border-stone-600 bg-white dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-300 dark:hover:border-stone-500'
+                      }`}
+                    >
+                      <span className="font-bold text-xs truncate mr-2">{acc.name}</span>
+                      <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-600 px-1.5 py-0.5 rounded-lg whitespace-nowrap">
+                        R$ {acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
         
         {/* NOVA ÁREA DE CONFIRMAÇÃO */}
         <div className={`mt-8 space-y-3 transition-all duration-300 ${isConfirmingDelete ? 'opacity-0 h-0' : 'opacity-100 h-auto'}`}>
            <button
             onClick={handleSave}
-            disabled={loading}
+            disabled={loading || (trackingType === 'auto' && !selectedAccountId)}
             className="w-full bg-stone-900 dark:bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-stone-800 dark:hover:bg-emerald-500 transition-colors disabled:opacity-50"
           >
             {loading ? 'Salvando...' : 'Salvar Alterações'}

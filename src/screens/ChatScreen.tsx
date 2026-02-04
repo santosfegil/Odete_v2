@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
+import {
   Phone, Plus, Paperclip, Camera, Mic, Send, AudioLines, ArrowLeft, MessageSquarePlus, Trash2, CheckCheck, SendHorizontal, User, LogOut
 } from 'lucide-react';
+import { OdeteLogoBubble, OdeteAvatar } from '../components/OdeteLogos';
 import { LiveServerMessage, Modality } from '@google/genai';
 import { GeminiService } from '../services/geminiService';
 import { createPcmBlob, decodeAudioData, base64ToUint8Array } from '../services/audioUtils';
@@ -547,8 +548,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
   if (isInitializing) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-400 text-sm animate-pulse">Iniciando a Odete...</p>
+        <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg animate-pulse">
+          <OdeteLogoBubble size={64} />
+        </div>
+        <p className="mt-4 text-gray-400 text-sm">Iniciando a Odete...</p>
       </div>
     );
   }
@@ -607,8 +610,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
                         className="flex items-center gap-3 p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                          <div className="relative flex-shrink-0">
-                            <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                                <img src={`https://picsum.photos/seed/${session.id}/200`} alt="Avatar" className="w-full h-full object-cover"/>
+                            <div className="w-12 h-12 rounded-full overflow-hidden">
+                                <OdeteAvatar size={48} />
                             </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -689,8 +692,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ onShowProfile }) => {
                 <ArrowLeft size={24} />
            </button>
           <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-white overflow-hidden">
-                <img src={`https://picsum.photos/seed/odete/200`} alt="Avatar" className="w-full h-full object-cover"/>
+            <div className="w-10 h-10 rounded-full overflow-hidden">
+                <OdeteAvatar size={40} />
             </div>
             <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#E0F2E9] ${isLiveActive ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`}></div>
           </div>
