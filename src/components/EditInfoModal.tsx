@@ -2,6 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { X, Save } from 'lucide-react';
 
+const formatPhone = (raw: string): string => {
+  const digits = raw.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits.length ? `(${digits}` : '';
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+};
+
 interface EditInfoModalProps {
   title: string;
   initialValue: string;
@@ -17,7 +24,7 @@ export const EditInfoModal: React.FC<EditInfoModalProps> = ({
   onSave, 
   onClose 
 }) => {
-  const [value, setValue] = useState(initialValue);
+  const [value, setValue] = useState(type === 'tel' ? formatPhone(initialValue || '') : initialValue);
   const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
@@ -38,10 +45,10 @@ export const EditInfoModal: React.FC<EditInfoModalProps> = ({
         <input
           type={type}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => setValue(type === 'tel' ? formatPhone(e.target.value) : e.target.value)}
           className="w-full p-3 rounded-xl bg-stone-100 dark:bg-stone-700 border-none mb-6 focus:ring-2 focus:ring-emerald-500 outline-none text-stone-900 dark:text-white"
           autoFocus
-          placeholder="Digite aqui..."
+          placeholder={type === 'tel' ? '(11) 99999-9999' : 'Digite aqui...'}
         />
         
         <button

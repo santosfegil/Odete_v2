@@ -12,6 +12,7 @@ import SpendingHistoryScreen from './screens/SpendingHistoryScreen';
 import DailySpendingHistoryScreen from './screens/DailySpendingHistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import BudgetScreen from './screens/BudgetScreen';
+import PlansScreen from './screens/PlansScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import type { Screen } from './types';
@@ -30,6 +31,7 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
   const [showNewGoal, setShowNewGoal] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
 
   const handleShowAllMedals = () => {
     setActiveTab('wallet');
@@ -97,7 +99,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 flex flex-col max-w-md mx-auto relative">
-      {!showAllGoals && !showAllMedals && !showSpendingHistory && !showInvestmentHistory && !showDailySpendingHistory && !showProfile && !showBudget && !showNewGoal && (
+      {!showAllGoals && !showAllMedals && !showSpendingHistory && !showInvestmentHistory && !showDailySpendingHistory && !showProfile && !showBudget && !showNewGoal && !showPlans && (
         <>
           {activeTab === 'home' && (
             <HomeScreen
@@ -133,8 +135,10 @@ function App() {
         <ProfileScreen
           onBack={() => setShowProfile(false)}
           onLogout={handleLogout}
+          onShowPlans={() => { setShowProfile(false); setShowPlans(true); }}
         />
       )}
+      {showPlans && <PlansScreen onBack={() => setShowPlans(false)} />}
       {showBudget && <BudgetScreen onBack={() => setShowBudget(false)} />}
       {showNewGoal && <NewGoalScreen onBack={() => setShowNewGoal(false)} onAskOdete={handleAskOdete} />}
     </div>
