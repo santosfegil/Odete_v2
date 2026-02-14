@@ -64,7 +64,6 @@ export interface WalletData {
   currentMonth: string;
 }
 
-// Adicione ou substitua estas definições
 export interface Achievement {
   id: string;
   title: string;
@@ -73,73 +72,14 @@ export interface Achievement {
   icon_slug: string;
 }
 
-// Interface combinada para o Frontend (Dados + Estado de Conquista)
 export interface Medal extends Achievement {
   earned: boolean;
   earned_at?: string;
 }
 
-export interface Medal {
-
-  id: string;
-
-  icon: string;
-
-  name: string;
-
-  description: string;
-
-  earned?: boolean;
-
-}
-
-// src/types.ts
-
-// Interface para a tabela satélite
-export interface LoanDetail {
-  monthly_payment: number;
-  interest_rate: number;
-  amortization_system?: string;
-}
-
-// A DebtAccount agora compõe Account + LoanDetail
-export interface DebtAccount {
-  id: string;
-  name: string;
-  balance: number;
-  type: string;
-  // Dados do contrato (1:1)
-  loan_details: LoanDetail | null; 
-  // Estado calculado em tempo de execução
-  paid_this_month: boolean;
-}
-
-export interface FinancialFreedomData {
-  totalDebt: number;
-  monthsToPay: number;
-  freedomDate: string;
-  savedInterest: number;
-  debts: DebtAccount[];
-}
-
-// ... mantenha o restante do arquivo
-
-export interface DebtAccount {
-  id: string;
-  name: string;
-  balance: number;
-  type: string;
-  interest_rate: number;
-  paid_this_month: boolean; // Novo campo
-}
-
-export interface FinancialFreedomData {
-  totalDebt: number;
-  monthsToPay: number;
-  freedomDate: string;
-  savedInterest: number;
-  debts: DebtAccount[];
-}
+// Loan types are now exported from src/lib/useFinancialFreedom.ts
+// Re-export for backwards compatibility
+export type { LoanDetail, DebtAccount, FinancialFreedomData } from './lib/useFinancialFreedom';
 
 export interface Goal {
   id: string;

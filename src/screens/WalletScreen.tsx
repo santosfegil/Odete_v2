@@ -146,7 +146,7 @@ export default function WalletScreen({ activeTab, onTabChange, onShowAllGoals, o
               </div>
               <div className="flex overflow-x-auto space-x-4 pb-4 no-scrollbar">
                 {loadingMedals ? <div className="pl-2 text-stone-500 text-sm py-4">Carregando...</div> : earnedMedals.length === 0 ? <div className="p-4 bg-white dark:bg-stone-800 rounded-2xl w-full text-center"><Award size={32} className="mx-auto mb-2 text-stone-300"/><p className="text-stone-500 text-sm">Nenhuma medalha ainda.</p></div> : earnedMedals.map((medal) => (
-                  <button key={medal.id} onClick={() => setSelectedMedal(medal)} className="w-28 flex-shrink-0 bg-white dark:bg-stone-800 rounded-3xl p-4 flex flex-col items-center justify-center aspect-square shadow-sm relative active:scale-95 transition-transform">
+                  <button key={medal.id} onClick={() => setSelectedMedal({ id: medal.id, name: medal.title, description: medal.description, icon: medal.icon_slug, earned: medal.earned, earned_at: medal.earned_at })} className="w-28 flex-shrink-0 bg-white dark:bg-stone-800 rounded-3xl p-4 flex flex-col items-center justify-center aspect-square shadow-sm relative active:scale-95 transition-transform">
                     <button className="absolute top-3 right-3 text-stone-500 dark:text-stone-400"><Share2 size={14} /></button>
                     <div className="text-yellow-400 mt-2">{getIconComponent(medal.icon_slug, 'w-8 h-8')}</div>
                     <p className="text-xs mt-2 font-medium text-stone-700 dark:text-stone-300 leading-tight text-center line-clamp-2">{medal.title}</p>

@@ -576,6 +576,7 @@ async function syncDataForItem(itemId: string, userId: string, bankConnectionId:
     console.log("[5/6] Buscando Transações Unificadas...");
     for (const asset of assetsToSync) {
       const transactionsToUpsert: any[] = [];
+      const pendingTagLinks: { external_id: string; tag_id: string }[] = [];
 
       if (asset.origin === 'ACCOUNT' || asset.origin === 'LOAN') {
         try {
@@ -651,9 +652,9 @@ async function syncDataForItem(itemId: string, userId: string, bankConnectionId:
 
             transactionsToUpsert.push(transactionData);
 
-            // Se regra aplicou tag, salvar na tabela de junção depois
+            // Coleta pares external_id → tagId para vincular após upsert
             if (tagIdFromRule) {
-              // TODO: Após upsert, vincular tag via transaction_tags
+              pendingTagLinks.push({ external_id: transactionHash, tag_id: tagIdFromRule });
             }
           }
         } catch (e) { console.warn(`Erro txs conta ${asset.id}:`, e); }
@@ -665,6 +666,33 @@ async function syncDataForItem(itemId: string, userId: string, bankConnectionId:
           .upsert(transactionsToUpsert, { onConflict: "external_id" });
 
         if (txnError) console.error(`Erro salvando txs do ativo ${asset.internalId}:`, txnError.message);
+      }
+
+      // Vincular tags das regras às transações (após upsert ter IDs)
+      if (pendingTagLinks.length > 0) {
+        const extIds = pendingTagLinks.map(p => p.external_id);
+        const { data: savedTxs } = await supabaseAdmin
+          .from("transactions")
+          .select("id, external_id")
+          .in("external_id", extIds);
+
+        if (savedTxs) {
+          const tagInserts = pendingTagLinks
+            .map(p => {
+              const tx = savedTxs.find(t => t.external_id === p.external_id);
+              return tx ? { transaction_id: tx.id, tag_id: p.tag_id } : null;
+            })
+            .filter(Boolean);
+
+          if (tagInserts.length > 0) {
+            const { error: tagErr } = await supabaseAdmin
+              .from("transaction_tags")
+              .upsert(tagInserts as any[], { onConflict: "transaction_id,tag_id" });
+
+            if (tagErr) console.error("Erro vinculando tags de regras:", tagErr.message);
+            else console.log(`🏷️ ${tagInserts.length} tag(s) vinculada(s) via regras`);
+          }
+        }
       }
     }
 

@@ -62,7 +62,8 @@ export default function AllMedalsScreen({ onBack }: AllMedalsScreenProps) {
                         name: medal.title,
                         description: medal.description,
                         icon: medal.icon_slug,
-                        earned: medal.earned
+                        earned: medal.earned,
+                        earned_at: medal.earned_at
                     })}
                     className={`w-28 flex-shrink-0 rounded-3xl p-4 flex flex-col items-center justify-center text-center aspect-square relative transition-all active:scale-95 ${
                         medal.earned

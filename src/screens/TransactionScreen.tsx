@@ -1,30 +1,33 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Search, Filter, Car, ArrowDownLeft, Zap, Coffee, 
-  ShoppingBag, Utensils, Briefcase, Plus, X, Tag, Check, Sparkles,
-  ChevronLeft, ChevronRight, Calendar, Clock, ArrowLeft, CheckCircle2,
-  Landmark, Receipt, Plane, Gift, Home, Gamepad2, FileText, TrendingUp, Loader2,
-  EyeOff, Eye, Pencil, FolderEdit
+import {
+  Search, Filter, Car, Zap, Coffee,
+  ShoppingBag, Utensils, Briefcase, Plus, X, Tag, Sparkles,
+  ChevronLeft, ChevronRight, Calendar, Clock, ArrowLeft,
+  Landmark, Plane, Gift, Home, Gamepad2, FileText, TrendingUp, Loader2,
+  EyeOff, Eye, Pencil
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import CategoryEditModal from '../components/CategoryEditModal'; // Certifique-se que o caminho está correto
+import { useCategoryRules } from '../lib/useCategoryRules';
+import CategoryEditModal from '../components/CategoryEditModal';
 
 // Interface alinhada com sua View do Supabase
 interface TransactionDetail {
-  id: string; 
-  description: string; 
-  amount: number; 
-  date: string; 
-  type: 'income' | 'expense'; 
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: 'income' | 'expense';
   status: 'paid' | 'pending';
-  tags: string[]; 
-  category_name: string; 
-  category_icon: string; 
-  category_color: string; 
-  account_name: string; 
-  bank_logo: string | null; 
+  tags: string[];
+  category_name: string;
+  category_icon: string;
+  category_color: string;
+  account_name: string;
+  bank_logo: string | null;
   bank_name: string | null;
   ignored_in_charts: boolean;
+  receiver_document?: string | null;
+  receiver_name?: string | null;
 }
 
 interface TransactionScreenProps {
@@ -71,8 +74,13 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
   
   // Modo de edição de categorias
   const [editMode, setEditMode] = useState(false);
-  const [selectedTxIds, setSelectedTxIds] = useState<Set<string>>(new Set());
   const [categoryEditTx, setCategoryEditTx] = useState<TransactionDetail | null>(null);
+
+  // Similar transactions for tag batch editing
+  const [similarForTags, setSimilarForTags] = useState<{ matches: any[]; matchType: string; matchValue: string } | null>(null);
+  const [applyToSimilar, setApplyToSimilar] = useState(false);
+  const [createTagRule, setCreateTagRule] = useState(false);
+  const { findSimilarTransactions, createRule: createRuleInDb } = useCategoryRules();
 
   // --- LÓGICA DE DATA ---
   const today = new Date();
@@ -147,6 +155,27 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
 
   // --- FILTROS & CÁLCULOS ---
   const activeTx = transactions.find(t => t.id === editingTxId);
+
+  // Find similar transactions when tag modal opens
+  useEffect(() => {
+    if (!activeTx) {
+      setSimilarForTags(null);
+      setApplyToSimilar(false);
+      setCreateTagRule(false);
+      return;
+    }
+    const search = async () => {
+      const result = await findSimilarTransactions({
+        id: activeTx.id,
+        description: activeTx.description,
+        amount: activeTx.amount,
+        receiver_document: activeTx.receiver_document,
+        receiver_name: activeTx.receiver_name,
+      });
+      setSimilarForTags(result);
+    };
+    search();
+  }, [activeTx?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const allKnownTags = useMemo(() => {
     const usedTags = transactions.flatMap(t => t.tags || []);
@@ -231,30 +260,77 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
   const handleToggleTag = async (tag: string) => {
     if (!activeTx) return;
     const cleanTag = tag.toLowerCase().trim();
-    
-    // Optimistic Update
+
+    // Determine which transactions to update
+    const txIdsToUpdate = [activeTx.id];
+    if (applyToSimilar && similarForTags?.matches) {
+      const similarIds = similarForTags.matches.map(m => m.id);
+      txIdsToUpdate.push(...similarIds);
+    }
+
+    // Optimistic Update for all affected transactions
     setTransactions(prev => prev.map(t => {
-      if (t.id === activeTx.id) {
+      if (txIdsToUpdate.includes(t.id)) {
         const currentTags = t.tags || [];
-        const newTags = currentTags.includes(cleanTag) 
-          ? currentTags.filter(x => x !== cleanTag) 
+        const newTags = currentTags.includes(cleanTag)
+          ? currentTags.filter(x => x !== cleanTag)
           : [...currentTags, cleanTag];
         return { ...t, tags: newTags };
       }
       return t;
     }));
-    
+
     setNewTagInput('');
-    
-    // RPC Supabase
+
+    // RPC Supabase - toggle for all affected transactions
     try {
-      await supabase.rpc('toggle_transaction_tag', { 
-        p_transaction_id: activeTx.id, 
-        p_tag_name: cleanTag 
-      });
+      for (const txId of txIdsToUpdate) {
+        await supabase.rpc('toggle_transaction_tag', {
+          p_transaction_id: txId,
+          p_tag_name: cleanTag
+        });
+      }
+
+      // Create auto-rule if requested
+      if (createTagRule && !activeTx.tags?.includes(cleanTag)) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Find the tag ID
+          const { data: tagRecord } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('name', cleanTag)
+            .single();
+
+          if (tagRecord && similarForTags) {
+            const ruleData: any = {
+              user_id: user.id,
+              target_tag_id: tagRecord.id,
+              priority: 10,
+              is_active: true,
+            };
+
+            if (similarForTags.matchType === 'document' && activeTx.receiver_document) {
+              ruleData.match_receiver_document = activeTx.receiver_document;
+              ruleData.rule_name = `Tag: Doc ${activeTx.receiver_document.slice(-4)}`;
+            } else if (similarForTags.matchType === 'name_amount' && activeTx.receiver_name) {
+              ruleData.match_receiver_name = activeTx.receiver_name;
+              ruleData.match_amount_min = activeTx.amount * 0.9;
+              ruleData.match_amount_max = activeTx.amount * 1.1;
+              ruleData.rule_name = `Tag: ${activeTx.receiver_name}`;
+            } else {
+              const keywords = activeTx.description.split(' ').slice(0, 3).join(' ');
+              ruleData.match_description_contains = keywords;
+              ruleData.rule_name = `Tag: ${keywords}`;
+            }
+
+            await createRuleInDb(ruleData);
+          }
+        }
+      }
     } catch (error) {
       console.error("Erro ao atualizar tag:", error);
-      // Reverter se necessário
     }
   };
 
@@ -577,6 +653,65 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
               {!newTagInput && (
                 <div><p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Populares</p><div className="flex flex-wrap gap-2">{systemTags.filter(t => !activeTx.tags?.includes(t)).map(tag => (<button key={tag} onClick={() => handleToggleTag(tag)} className="px-3 py-2 bg-white border border-stone-200 text-stone-500 rounded-xl text-xs font-bold hover:border-emerald-200 hover:text-emerald-600 transition-colors">#{tag}</button>))}</div></div>
               )}
+
+              {/* Similar Transactions Section */}
+              {similarForTags && similarForTags.matches.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-stone-100">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 flex items-start gap-2.5">
+                    <Sparkles size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-800">
+                        {similarForTags.matches.length} transação(ões) similar(es)
+                      </p>
+                      <p className="text-[10px] text-amber-700 mt-0.5">
+                        {similarForTags.matchType === 'document' && 'Mesmo CPF/CNPJ do favorecido'}
+                        {similarForTags.matchType === 'name_amount' && `Mesmo nome "${similarForTags.matchValue}"`}
+                        {similarForTags.matchType === 'description' && `Descrição contém "${similarForTags.matchValue}"`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 max-h-28 overflow-y-auto mb-3">
+                    {similarForTags.matches.slice(0, 5).map((tx: any) => (
+                      <div key={tx.id} className="flex justify-between items-center p-2 bg-stone-50 rounded-lg">
+                        <span className="text-xs font-bold text-stone-600 truncate max-w-[170px]">{tx.description}</span>
+                        <span className="text-xs font-bold text-stone-400">R$ {Math.abs(tx.amount).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    {similarForTags.matches.length > 5 && (
+                      <p className="text-[10px] text-stone-400 text-center">+{similarForTags.matches.length - 5} outras</p>
+                    )}
+                  </div>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer mb-2">
+                    <input
+                      type="checkbox"
+                      checked={applyToSimilar}
+                      onChange={(e) => setApplyToSimilar(e.target.checked)}
+                      className="w-4 h-4 rounded border-stone-300 text-emerald-500 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs font-bold text-stone-700">
+                      Aplicar tags nas similares
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={createTagRule}
+                      onChange={(e) => setCreateTagRule(e.target.checked)}
+                      className="w-4 h-4 rounded border-stone-300 text-violet-500 focus:ring-violet-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-stone-700 flex items-center gap-1">
+                        <Sparkles size={10} className="text-violet-500" />
+                        Auto-taguear no futuro
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+
               <div className="h-6"></div>
             </div>
           </div>
@@ -600,7 +735,9 @@ const TransactionScreen: React.FC<TransactionScreenProps> = ({ onBack }) => {
                  description: categoryEditTx.description,
                  amount: categoryEditTx.amount,
                  category_id: undefined,
-                 category_name: categoryEditTx.category_name
+                 category_name: categoryEditTx.category_name,
+                 receiver_document: categoryEditTx.receiver_document,
+                 receiver_name: categoryEditTx.receiver_name,
                }}
                onSuccess={() => {
                  fetchTransactions();

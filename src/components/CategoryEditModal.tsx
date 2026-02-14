@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   X, Check, AlertCircle, Loader2, FolderEdit, Sparkles,
-  Home, ShoppingCart, ShoppingBag, Car, Heart, Music, GraduationCap, 
+  Home, ShoppingCart, ShoppingBag, Car, Heart, Music, GraduationCap,
   Plane, Dumbbell, Zap, Dog, Briefcase, TrendingUp, Gift, MoreHorizontal
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -74,14 +74,13 @@ interface CategoryEditModalProps {
   inline?: boolean;
 }
 
-export default function CategoryEditModal({ 
-  isOpen, 
-  onClose, 
-  transaction, 
+export default function CategoryEditModal({
+  isOpen,
+  onClose,
+  transaction,
   onSuccess,
   inline = false
 }: CategoryEditModalProps) {
-  // ... (state and effects remain the same) ...
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [step, setStep] = useState<'select' | 'similar' | 'confirm'>('select');
@@ -97,42 +96,40 @@ export default function CategoryEditModal({
   // Fetch categories
   useEffect(() => {
     if (!isOpen) return;
-    
-    const fetchCategories = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      const { data, error } = await supabase
+    // Reset state on open
+    setStep('select');
+    setSelectedCategoryId(null);
+    setSimilarTxs([]);
+    setUpdateAll(false);
+    setCreateRule(false);
+
+    const fetchData = async () => {
+      const { data: catData } = await supabase
         .from('categories')
         .select('id, name, icon_key, color_hex')
         .is('user_id', null)
         .eq('scope', 'expense')
         .order('name');
 
-      if (error) {
-        console.error('Erro ao buscar categorias:', error);
-        return;
-      }
-
-      if (data) setCategories(data);
+      if (catData) setCategories(catData);
     };
 
-    fetchCategories();
+    fetchData();
   }, [isOpen]);
 
   const handleCategorySelect = async (categoryId: string) => {
     setSelectedCategoryId(categoryId);
-    
+
     // Buscar transações similares
     const result = await findSimilarTransactions(transaction);
-    
+
     if (result && result.matches.length > 0) {
       setSimilarTxs(result.matches);
       setMatchType(result.matchType);
       setMatchValue(result.matchValue);
       setStep('similar');
     } else {
-      // Sem similares, vai direto para confirmação
       setStep('confirm');
     }
   };
@@ -146,19 +143,16 @@ export default function CategoryEditModal({
       if (!user) return;
 
       const txIdsToUpdate = [transaction.id];
-      
+
       if (updateAll && similarTxs.length > 0) {
         txIdsToUpdate.push(...similarTxs.map(t => t.id));
       }
 
-      // Atualiza as transações
+      // Update categories
       const success = await bulkUpdateCategory(txIdsToUpdate, selectedCategoryId);
-      
-      if (!success) {
-        throw new Error('Falha ao atualizar transações');
-      }
+      if (!success) throw new Error('Falha ao atualizar categorias');
 
-      // Cria regra se solicitado
+      // Create rule if requested
       if (createRule) {
         const ruleData: any = {
           user_id: user.id,
@@ -167,7 +161,7 @@ export default function CategoryEditModal({
           is_active: true,
         };
 
-        // Define critério de match baseado no tipo encontrado
+        // Define match criteria
         if (matchType === 'document' && transaction.receiver_document) {
           ruleData.match_receiver_document = transaction.receiver_document;
           ruleData.rule_name = `Regra: Doc ${transaction.receiver_document.slice(-4)}`;
@@ -177,7 +171,6 @@ export default function CategoryEditModal({
           ruleData.match_amount_max = transaction.amount * 1.1;
           ruleData.rule_name = `Regra: ${transaction.receiver_name}`;
         } else {
-          // Fallback para descrição
           const keywords = transaction.description.split(' ').slice(0, 3).join(' ');
           ruleData.match_description_contains = keywords;
           ruleData.rule_name = `Regra: ${keywords}`;
@@ -197,7 +190,6 @@ export default function CategoryEditModal({
 
   if (!isOpen) return null;
 
-  // Conteúdo interno do modal (sem wrapper)
   const modalContent = (
     <div className={`bg-white w-full rounded-t-[2.5rem] p-6 pb-8 shadow-2xl relative z-10 animate-in slide-in-from-bottom duration-300 ${inline ? 'max-h-[70vh] overflow-y-auto' : 'max-h-[85%] overflow-hidden flex flex-col'}`}>
         {/* Header */}
@@ -205,7 +197,7 @@ export default function CategoryEditModal({
           <div>
             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1 flex items-center gap-1">
               <FolderEdit size={10} />
-              {step === 'select' ? 'Alterar Categoria' : step === 'similar' ? 'Transações Similares' : 'Confirmar'}
+              {step === 'select' ? 'Editar Categoria' : step === 'similar' ? 'Transações Similares' : 'Confirmar'}
             </p>
             <h2 className="text-lg font-extrabold text-stone-900 truncate max-w-[220px]">
               {transaction.description}
@@ -221,8 +213,8 @@ export default function CategoryEditModal({
               )}
             </div>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 bg-stone-100 rounded-full text-stone-500 hover:bg-stone-200 transition-colors"
           >
             <X size={20} />
@@ -231,17 +223,17 @@ export default function CategoryEditModal({
 
         {/* Step 1: Select Category */}
         {step === 'select' && (
-          <div className="space-y-4">
+          <div className={`space-y-4 ${inline ? '' : 'overflow-y-auto flex-1'}`}>
             <p className="text-xs text-stone-500 font-medium">
               Selecione a nova categoria:
             </p>
-            
+
             {loading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="animate-spin text-emerald-500" size={32} />
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 overflow-y-auto">
+              <div className="grid grid-cols-3 gap-3">
                 {categories.map(cat => {
                   const isSelected = selectedCategoryId === cat.id;
                   return (
@@ -250,8 +242,8 @@ export default function CategoryEditModal({
                       onClick={() => handleCategorySelect(cat.id)}
                       className={`
                         flex flex-col items-center justify-center p-4 rounded-2xl aspect-square transition-all duration-200 border
-                        ${isSelected 
-                          ? 'bg-stone-900 text-white transform scale-95 shadow-lg border-transparent' 
+                        ${isSelected
+                          ? 'bg-stone-900 text-white transform scale-95 shadow-lg border-transparent'
                           : 'bg-white text-stone-500 hover:bg-stone-50 shadow-sm border-stone-100'
                         }
                       `}
@@ -359,9 +351,9 @@ export default function CategoryEditModal({
           <div className="space-y-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
               <p className="text-sm font-bold text-emerald-800">
-                {updateAll && similarTxs.length > 0 
-                  ? `Alterar ${1 + similarTxs.length} transações`
-                  : 'Alterar 1 transação'
+                {updateAll && similarTxs.length > 0
+                  ? `Alterar categoria de ${1 + similarTxs.length} transações`
+                  : 'Alterar categoria de 1 transação'
                 }
               </p>
               <p className="text-xs text-emerald-700 mt-1">
@@ -404,9 +396,9 @@ export default function CategoryEditModal({
   return (
     <div className="absolute top-0 left-0 w-full h-full z-50 flex flex-col justify-end pointer-events-auto">
       {/* Overlay Escuro (clicável para fechar) */}
-      <div 
-        className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm rounded-[2.5rem] animate-in fade-in duration-200" 
-        onClick={onClose} 
+      <div
+        className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm rounded-[2.5rem] animate-in fade-in duration-200"
+        onClick={onClose}
       />
       {modalContent}
     </div>

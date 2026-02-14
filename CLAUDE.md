@@ -105,3 +105,9 @@ Edge Functions require (set in Supabase Dashboard):
 - **Category Rules**: Auto-categorization system that learns from user corrections
 - **Ignore from Budget**: Mark transactions to exclude from budget calculations while keeping them visible
 - **Weekly Challenges**: Gamification with tag-based financial challenges
+
+## Regras de Comportamento
+
+- **Quando o usuário reportar que algo não funciona: DEBUGAR PRIMEIRO.** Não saia mudando código. Investigue o problema, leia logs, verifique dados no banco, entenda a causa raiz antes de propor qualquer alteração.
+- **Não assuma que o código está errado.** A tela pode já funcionar — o problema pode ser nos dados, permissões, ou configuração.
+- **Não altere código sem autorização explícita do usuário.**
